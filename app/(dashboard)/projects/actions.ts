@@ -74,27 +74,24 @@ export async function createProjectRecord(
 
   if (error) return { ok: false, error: error.message };
 
-  // Инкрементируем projects_count клиента.
+  // Инкрементируем projects_count клиента (с фолбэком, если RPC нет).
   if (data.client_id) {
-    supabase
-      .rpc("increment_client_projects_count", { client_uuid: data.client_id })
-      .then(() => {})
-      .catch(() => {
-        // Если функции нет (fallback для MVP), пересчитаем вручную.
-        supabase
-          .from("projects")
-          .select("id")
-          .eq("client_id", data.client_id)
-          .then(({ data: projects }) => {
-            supabase
-              .from("clients")
-              .update({ projects_count: (projects ?? []).length })
-              .eq("id", data.client_id)
-              .then(() => {})
-              .catch(() => {}); // Ошибка не должна сломать основное действие
-          })
-          .catch(() => {}); // Ошибка чтения не должна сломать основное действие
-      });
+    const { error: rpcError } = await supabase.rpc(
+      "increment_client_projects_count",
+      { client_uuid: data.client_id },
+    );
+
+    if (rpcError) {
+      // Фолбэк для MVP: пересчитываем вручную. Ошибки тут не критичны.
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("client_id", data.client_id);
+      await supabase
+        .from("clients")
+        .update({ projects_count: (projects ?? []).length })
+        .eq("id", data.client_id);
+    }
   }
 
   revalidatePath("/projects");

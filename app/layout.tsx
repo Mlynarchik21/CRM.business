@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
-import { cn } from "@/lib/utils";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Studio CRM",
   description: "CRM-система для digital-студии",
 };
 
+// Шрифт — системный стек (Tailwind font-sans). Не зависит от Google Fonts при
+// сборке, поэтому деплой не падает из-за сетевых сбоев к fonts.gstatic.com.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -18,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className="dark" suppressHydrationWarning>
-      <body className={cn(inter.variable, "min-h-screen bg-background font-sans antialiased")}>
+      <body className="min-h-screen bg-background font-sans antialiased">
         {children}
         <Toaster theme="dark" position="top-right" richColors />
       </body>

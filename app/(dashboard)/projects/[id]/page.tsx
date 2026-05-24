@@ -470,6 +470,7 @@ export default async function ProjectDetailPage({
                         className="rounded-xl border border-border p-3 transition-colors hover:border-primary/40"
                       >
                         {isImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={asset.url}
                             alt={asset.name}

@@ -32,6 +32,7 @@ type IntakeLead = {
   maps_url?: string;
   niche?: string;
   query_source?: string;
+  offer?: string;
 };
 
 function checkSecret(request: Request): boolean {
@@ -75,12 +76,12 @@ async function ingestOne(
       .from("leads")
       .update({
         cold_search: {
-          found_at: "Google Maps",
+          found_at: item.query_source ? `Google Maps · ${item.query_source}` : "Google Maps",
           business_type: niche,
           links: item.maps_url ?? "",
-          business_age: "",
-          assets: "",
-          offer: "",
+          business_age: item.rating != null ? `Рейтинг: ${item.rating}` : "",
+          assets: "Нет сайта (найден по карте)",
+          offer: (item.offer ?? "").toString(),
         },
       })
       .eq("id", res.result.id);

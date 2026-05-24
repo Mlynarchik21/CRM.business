@@ -31,6 +31,10 @@ dev-server.out.log
 start-server.err.log
 start-server.out.log
 
+# Локальные инструменты с приватными ключами (парсер Google Maps) — не коммитить
+/tools/
+leads_backup.csv
+
 # local env files
 .env
 .env*.local

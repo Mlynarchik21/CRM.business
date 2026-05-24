@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   type ColumnDef,
@@ -10,7 +10,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
+import { toast } from "sonner";
 import { LeadFormDialog } from "@/components/leads/LeadFormDialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LEAD_SOURCE_LABEL, LEAD_STATUS } from "@/lib/constants";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { LEAD_STATUSES } from "@/lib/validations";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 export type LeadTableLabel = {
@@ -68,10 +70,18 @@ export function LeadsTable({
   leads: LeadTableItem[];
 }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(1);
+
+  function refresh() {
+    startRefresh(() => {
+      router.refresh();
+      toast.success("Список лидов обновлён");
+    });
+  }
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created_at", desc: true },
   ]);
@@ -241,11 +251,24 @@ export function LeadsTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все статусы</SelectItem>
-            <SelectItem value="new">Новые</SelectItem>
-            <SelectItem value="no_answer">Не дозвонился</SelectItem>
-            <SelectItem value="not_bought">Не потенциальный</SelectItem>
+            {LEAD_STATUSES.map((leadStatus) => (
+              <SelectItem key={leadStatus} value={leadStatus}>
+                {LEAD_STATUS[leadStatus].label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={refresh}
+          disabled={refreshing}
+          title="Обновить список"
+          className="bg-card"
+        >
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+        </Button>
 
         <div className="ml-auto">
           <LeadFormDialog />

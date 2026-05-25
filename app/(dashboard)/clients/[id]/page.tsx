@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { addClientComment, updateClientNotes } from "@/app/(dashboard)/clients/actions";
+import { ClientArchiveButton } from "@/components/clients/ClientArchiveButton";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
 import { ClientLeadInfoPanel } from "@/components/clients/ClientLeadInfoPanel";
 import { ClientNotesEditor } from "@/components/clients/ClientNotesEditor";
@@ -139,6 +140,11 @@ export default async function ClientDetailPage({
                 ID #{crmId}
               </span>
               <StatusBadge label={statusMeta.label} color={statusMeta.color} />
+              {client.archived && (
+                <span className="rounded-full bg-[#6B72801A] px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  В архиве
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               Клиент с {formatDate(client.created_at, true)}
@@ -146,15 +152,18 @@ export default async function ClientDetailPage({
           </div>
         </div>
 
-        <ClientFormDialog
-          client={client}
-          trigger={
-            <Button variant="outline">
-              <Pencil className="mr-2 h-4 w-4" />
-              Редактировать
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <ClientArchiveButton clientId={client.id} archived={Boolean(client.archived)} />
+          <ClientFormDialog
+            client={client}
+            trigger={
+              <Button variant="outline">
+                <Pencil className="mr-2 h-4 w-4" />
+                Редактировать
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

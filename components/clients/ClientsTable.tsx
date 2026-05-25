@@ -43,6 +43,7 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const [view, setView] = useState<"active" | "archived" | "all">("active");
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState<SortingState>([
@@ -51,11 +52,14 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
 
   useEffect(() => {
     setPage(1);
-  }, [search, status, pageSize]);
+  }, [search, status, view, pageSize]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients.filter((client) => {
+      const archived = Boolean(client.archived);
+      if (view === "active" && archived) return false;
+      if (view === "archived" && !archived) return false;
       if (status !== "all" && client.status !== status) return false;
       if (!q) return true;
 
@@ -67,7 +71,7 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         (client.notes ?? "").toLowerCase().includes(q)
       );
     });
-  }, [clients, search, status]);
+  }, [clients, search, status, view]);
 
   const columns = useMemo<ColumnDef<ClientTableItem>[]>(
     () => [
@@ -193,6 +197,17 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
                 {CLIENT_STATUS[clientStatus].label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
+          <SelectTrigger className="w-36 bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Активные</SelectItem>
+            <SelectItem value="archived">Архив</SelectItem>
+            <SelectItem value="all">Все</SelectItem>
           </SelectContent>
         </Select>
 

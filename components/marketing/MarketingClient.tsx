@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Lightbulb, Pencil, Plus, Trash2, Wrench } from "lucide-react";
+import { ChevronDown, ExternalLink, Lightbulb, Pencil, Plus, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import {
   saveMarketingSources,
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { COLORS } from "@/lib/constants";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 
 export type TrafficStat = {
   source: string;
@@ -37,6 +37,9 @@ export type TrafficStat = {
   leads: number;
   clients: number;
   conversion: number;
+  revenue: number;
+  spend: number;
+  costPerLead: number;
 };
 
 function makeId() {
@@ -210,6 +213,7 @@ export function MarketingClient({
   const [pending, startTransition] = useTransition();
   const [formOpen, setFormOpen] = useState(false);
   const [formSource, setFormSource] = useState<MarketingSource | null>(null);
+  const [openSource, setOpenSource] = useState<string | null>(null);
 
   function persist(next: MarketingSource[], okMsg?: string) {
     const prev = sources;
@@ -298,17 +302,46 @@ export function MarketingClient({
               Пока нет лидов с источниками — данные появятся, когда пойдёт трафик.
             </div>
           ) : (
-            trafficStats.map((s) => (
-              <div
-                key={s.source}
-                className="grid grid-cols-[minmax(0,1.6fr)_100px_100px_120px] items-center gap-4 border-b border-border px-4 py-3 last:border-b-0"
-              >
-                <div className="truncate font-medium">{s.label}</div>
-                <div className="text-sm text-muted-foreground">{formatNumber(s.leads)}</div>
-                <div className="text-sm text-muted-foreground">{formatNumber(s.clients)}</div>
-                <div className="text-sm font-medium text-primary">{s.conversion}%</div>
-              </div>
-            ))
+            trafficStats.map((s) => {
+              const isOpen = openSource === s.source;
+              return (
+                <div key={s.source} className="border-b border-border last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => setOpenSource(isOpen ? null : s.source)}
+                    className="grid w-full grid-cols-[minmax(0,1.6fr)_100px_100px_120px_32px] items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-[#1B1B1F]"
+                  >
+                    <span className="truncate font-medium">{s.label}</span>
+                    <span className="text-sm text-muted-foreground">{formatNumber(s.leads)}</span>
+                    <span className="text-sm text-muted-foreground">{formatNumber(s.clients)}</span>
+                    <span className="text-sm font-medium text-primary">{s.conversion}%</span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                  </button>
+                  {isOpen && (
+                    <div className="grid gap-3 px-4 pb-4 sm:grid-cols-4">
+                      <div className="rounded-lg bg-[#1B1B1F] p-3">
+                        <p className="text-xs text-muted-foreground">Выручка с источника</p>
+                        <p className="mt-1 text-sm font-semibold text-primary">{formatCurrency(s.revenue)}</p>
+                      </div>
+                      <div className="rounded-lg bg-[#1B1B1F] p-3">
+                        <p className="text-xs text-muted-foreground">Расход</p>
+                        <p className="mt-1 text-sm font-semibold text-destructive">{formatCurrency(s.spend)}</p>
+                      </div>
+                      <div className="rounded-lg bg-[#1B1B1F] p-3">
+                        <p className="text-xs text-muted-foreground">Цена лида</p>
+                        <p className="mt-1 text-sm font-semibold">{s.leads > 0 && s.spend > 0 ? formatCurrency(s.costPerLead) : "—"}</p>
+                      </div>
+                      <div className="rounded-lg bg-[#1B1B1F] p-3">
+                        <p className="text-xs text-muted-foreground">ROI</p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {s.spend > 0 ? `${Math.round(((s.revenue - s.spend) / s.spend) * 100)}%` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </CardContent>
       </Card>

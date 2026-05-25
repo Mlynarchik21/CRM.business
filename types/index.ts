@@ -201,6 +201,7 @@ export interface Client {
   last_contact_at: Timestamp | null;
   last_payment_at: Timestamp | null;
   notes: string | null;
+  archived?: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

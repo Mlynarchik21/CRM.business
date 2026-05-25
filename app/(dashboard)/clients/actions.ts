@@ -107,6 +107,26 @@ export async function updateClientNotes(
   return { ok: true, id };
 }
 
+export async function setClientArchived(
+  id: string,
+  archived: boolean,
+): Promise<ActionResult> {
+  const supabase = createClient();
+  const { error } = await supabase.from("clients").update({ archived }).eq("id", id);
+
+  if (error) {
+    if (/archived/.test(error.message) && /column/i.test(error.message)) {
+      return { ok: false, error: "Применте миграцию 008 (поле archived) в Supabase." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${id}`);
+  revalidatePath("/");
+  return { ok: true, id };
+}
+
 export async function deleteClientRecord(id: string): Promise<ActionResult> {
   const supabase = createClient();
   const { error } = await supabase.from("clients").delete().eq("id", id);

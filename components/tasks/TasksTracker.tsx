@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, CheckSquare, ChevronDown, Pencil, Plus, Square } from "lucide-react";
+import { CheckSquare, ChevronDown, Pencil, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import {
   createTaskRecord,
@@ -25,13 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PRIORITY, TASK_STATUS } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 import type { ChecklistItem, Priority, Task, TaskStatus } from "@/types";
@@ -68,6 +61,7 @@ export function TasksTracker({
   const [sortKey, setSortKey] = useState<"due" | "priority">("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showDone, setShowDone] = useState(false);
+  const [group, setGroup] = useState<"company" | "projects">("company");
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
@@ -319,14 +313,54 @@ export function TasksTracker({
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle>Задачи</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Компактный список с раскрытием деталей по клику.
-            </p>
+        <CardHeader className="flex flex-col gap-3 space-y-0 xl:flex-row xl:items-center xl:justify-between">
+          {/* Ползунок-переключатель групп (как тумблер темы) */}
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={() => setGroup("company")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                group === "company" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Внутри компании · {companyTasks.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setGroup("projects")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                group === "projects" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              По проектам · {projectTasks.length}
+            </button>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Сортировка
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => { setSortKey("due"); setSortDir("asc"); }}>
+                  Сроки: сначала ближние
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortKey("due"); setSortDir("desc"); }}>
+                  Сроки: сначала дальние
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortKey("priority"); setSortDir("desc"); }}>
+                  Важность: сначала высокая
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSortKey("priority"); setSortDir("asc"); }}>
+                  Важность: сначала низкая
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setShowTemplates((v) => !v)}>
               Шаблоны
             </Button>
@@ -336,7 +370,7 @@ export function TasksTracker({
               trigger={
                 <Button size="sm">
                   <Plus className="mr-1 h-4 w-4" />
-                  Добавить
+                  Новая задача
                 </Button>
               }
             />
@@ -363,33 +397,10 @@ export function TasksTracker({
             <p className="py-6 text-center text-sm text-muted-foreground">
               Задач пока нет. Добавь первую кнопкой «Добавить» или из шаблонов.
             </p>
+          ) : group === "company" ? (
+            renderGroup("Внутри компании", companyTasks)
           ) : (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Сортировка:</span>
-                <Select value={sortKey} onValueChange={(v) => setSortKey(v as "due" | "priority")}>
-                  <SelectTrigger className="h-8 w-44 bg-card">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="due">По дате задачи</SelectItem>
-                    <SelectItem value="priority">По важности</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                  title={sortDir === "asc" ? "По возрастанию" : "По убыванию"}
-                >
-                  {sortDir === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                </Button>
-              </div>
-
-              {renderGroup("Внутри компании", companyTasks)}
-              {renderGroup("По проектам", projectTasks)}
-            </div>
+            renderGroup("По проектам", projectTasks)
           )}
         </CardContent>
       </Card>

@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Building2,
   Check,
   Copy,
+  History,
   KeyRound,
   Palette,
   Plug,
@@ -18,8 +20,11 @@ import { toast } from "sonner";
 import {
   createLabel,
   deleteLabel,
+  markErrorChecked,
+  saveChangelog,
   updateMyProfile,
   upsertSetting,
+  type ChangelogEntry,
 } from "@/app/(dashboard)/settings/actions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +48,16 @@ export type ExternalConnection = {
   status: "active" | "inactive";
 };
 
+export type ErrorLogRow = {
+  id: string;
+  title: string;
+  detail: string | null;
+  route: string | null;
+  status: "open" | "fixed";
+  created_at: string;
+  fixed_at: string | null;
+};
+
 export type SettingsData = {
   profile: { full_name: string; telegram_username: string };
   company: { company_name: string; default_currency: string };
@@ -50,6 +65,8 @@ export type SettingsData = {
   appearance: { accent: AccentKey; density: DensityKey };
   integrations: Integration[];
   connections: ExternalConnection[];
+  errors: ErrorLogRow[];
+  changelog: ChangelogEntry[];
   appUrl: string;
   webhookSecretSet: boolean;
 };
@@ -61,6 +78,7 @@ type SectionKey =
   | "labels"
   | "connections"
   | "api"
+  | "journal"
   | "advanced";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof User; hint: string }[] = [
@@ -70,6 +88,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof User; hint: strin
   { key: "labels", label: "Лейблы", icon: Tag, hint: "Цветные метки" },
   { key: "connections", label: "Подключения", icon: Plug, hint: "Статус интеграций" },
   { key: "api", label: "API", icon: KeyRound, hint: "Вебхуки и ключи" },
+  { key: "journal", label: "Журнал", icon: History, hint: "Ошибки и обновления" },
   { key: "advanced", label: "Расширенные", icon: Settings2, hint: "Доп. параметры" },
 ];
 
@@ -149,6 +168,70 @@ export function SettingsClient({ data }: { data: SettingsData }) {
     setConnName("");
     setConnUrl("");
     setConnKey("");
+  }
+
+  // Журнал
+  const [journalTab, setJournalTab] = useState<"errors" | "updates">("errors");
+  const [changelog, setChangelog] = useState<ChangelogEntry[]>(data.changelog);
+  const [clNumber, setClNumber] = useState("");
+  const [clDesc, setClDesc] = useState("");
+
+  function checkError(id: string) {
+    startTransition(async () => {
+      const r = await markErrorChecked(id);
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Отмечено как исправлено");
+      router.refresh();
+    });
+  }
+
+  function persistChangelog(next: ChangelogEntry[]) {
+    const prev = changelog;
+    setChangelog(next);
+    startTransition(async () => {
+      const r = await saveChangelog(next);
+      if (!r.ok) {
+        toast.error(r.error);
+        setChangelog(prev);
+        return;
+      }
+      toast.success("Журнал обновлён");
+      router.refresh();
+    });
+  }
+
+  function addChangelogEntry() {
+    if (!clDesc.trim()) {
+      toast.error("Опишите изменение");
+      return;
+    }
+    const autoNumber = clNumber.trim() || `#${changelog.length + 1}`;
+    persistChangelog([
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 10),
+        number: autoNumber,
+        description: clDesc.trim(),
+        created_at: new Date().toISOString(),
+      },
+      ...changelog,
+    ]);
+    setClNumber("");
+    setClDesc("");
+  }
+
+  function fmtDateTime(value: string) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function saveProfile() {
@@ -551,6 +634,133 @@ export function SettingsClient({ data }: { data: SettingsData }) {
                 Проверка уведомлений: <code>{webhookBase}/api/telegram/internal-bot?test=1</code>.
               </p>
             </div>
+          </SectionShell>
+        )}
+
+        {active === "journal" && (
+          <SectionShell
+            title="Журнал"
+            description="Ошибки CRM и история обновлений."
+          >
+            <div className="mb-5 inline-flex rounded-lg border border-border bg-card p-1">
+              <button
+                type="button"
+                onClick={() => setJournalTab("errors")}
+                className={cn(
+                  "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                  journalTab === "errors" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Ошибки
+              </button>
+              <button
+                type="button"
+                onClick={() => setJournalTab("updates")}
+                className={cn(
+                  "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                  journalTab === "updates" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Обновления
+              </button>
+            </div>
+
+            {journalTab === "errors" ? (
+              <div className="space-y-2">
+                {data.errors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Ошибок нет. Если CRM где-то упадёт — ошибка появится здесь с кнопкой «Скопировать».
+                  </p>
+                ) : (
+                  data.errors.map((err) => (
+                    <div
+                      key={err.id}
+                      className={cn(
+                        "rounded-lg border p-3",
+                        err.status === "fixed" ? "border-border bg-[#1B1B1F]" : "border-destructive/40 bg-destructive/5",
+                      )}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-2 text-sm font-medium">
+                            {err.status === "fixed" ? (
+                              <Check className="h-4 w-4 text-primary" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            )}
+                            <span className="truncate">{err.title}</span>
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {err.route ? `${err.route} · ` : ""}{fmtDateTime(err.created_at)}
+                            {err.status === "fixed" && err.fixed_at ? ` · исправлено ${fmtDateTime(err.fixed_at)}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copy(`${err.title}\n\n${err.detail ?? ""}`)}
+                          >
+                            <Copy className="mr-1 h-3.5 w-3.5" />
+                            Скопировать
+                          </Button>
+                          {err.status === "fixed" ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-primary">
+                              <Check className="h-3.5 w-3.5" /> Исправлено
+                            </span>
+                          ) : (
+                            <Button size="sm" disabled={pending} onClick={() => checkError(err.id)}>
+                              Проверить
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-[#1B1B1F] p-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="cl_number">Номер</Label>
+                    <Input id="cl_number" value={clNumber} onChange={(e) => setClNumber(e.target.value)} placeholder="напр. v1.4" className="w-32" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="cl_desc">Что изменили / добавили / удалили</Label>
+                    <Input id="cl_desc" value={clDesc} onChange={(e) => setClDesc(e.target.value)} placeholder="Добавлены уведомления и журнал ошибок" />
+                  </div>
+                  <Button onClick={addChangelogEntry} disabled={pending || !clDesc.trim()}>
+                    Добавить
+                  </Button>
+                </div>
+
+                {changelog.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Записей об обновлениях пока нет.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {changelog.map((entry) => (
+                      <div key={entry.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            <span className="text-primary">{entry.number}</span> · {fmtDateTime(entry.created_at)}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{entry.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => persistChangelog(changelog.filter((c) => c.id !== entry.id))}
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          aria-label="Удалить"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </SectionShell>
         )}
 

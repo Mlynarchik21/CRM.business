@@ -31,7 +31,7 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, settingsRes, labelsRes] = await Promise.all([
+  const [profileRes, settingsRes, labelsRes, errorsRes] = await Promise.all([
     user
       ? supabase
           .from("profiles")
@@ -41,6 +41,11 @@ export default async function SettingsPage() {
       : Promise.resolve({ data: null }),
     supabase.from("settings").select("key, value").returns<Pick<Setting, "key" | "value">[]>(),
     supabase.from("labels").select("*").order("created_at", { ascending: true }).returns<LabelRow[]>(),
+    supabase
+      .from("error_logs")
+      .select("id, title, detail, route, status, created_at, fixed_at")
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   const settingsMap = new Map(
@@ -71,6 +76,10 @@ export default async function SettingsPage() {
     })),
     connections: Array.isArray(settingsMap.get("connections"))
       ? (settingsMap.get("connections") as SettingsData["connections"])
+      : [],
+    errors: (errorsRes.data ?? []) as SettingsData["errors"],
+    changelog: Array.isArray(settingsMap.get("changelog"))
+      ? (settingsMap.get("changelog") as SettingsData["changelog"])
       : [],
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
     webhookSecretSet: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),

@@ -99,3 +99,56 @@ export async function deleteLabel(id: string): Promise<ActionResult> {
   revalidatePath("/settings");
   return { ok: true };
 }
+
+// ── Журнал: ошибки и обновления ──────────────────────────────
+
+/** «Проверить» ошибку: отмечаем исправленной (галочка + дата). */
+export async function markErrorChecked(id: string): Promise<ActionResult> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("error_logs")
+    .update({ status: "fixed", fixed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/** Снова открыть ошибку (если повторилась). */
+export async function reopenError(id: string): Promise<ActionResult> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("error_logs")
+    .update({ status: "open", fixed_at: null })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export type ChangelogEntry = {
+  id: string;
+  number: string;
+  description: string;
+  created_at: string;
+};
+
+/** Сохраняет журнал обновлений в settings (ключ "changelog"). */
+export async function saveChangelog(entries: ChangelogEntry[]): Promise<ActionResult> {
+  const supabase = createClient();
+  const clean = entries.map((e) => ({
+    id: String(e.id),
+    number: String(e.number ?? ""),
+    description: String(e.description ?? ""),
+    created_at: e.created_at ?? new Date().toISOString(),
+  }));
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ key: "changelog", value: clean, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
+}

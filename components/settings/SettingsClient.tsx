@@ -100,6 +100,53 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof User; hint: strin
   { key: "advanced", label: "Расширенные", icon: Settings2, hint: "Доп. параметры" },
 ];
 
+const INTEGRATIONS_CATALOG: {
+  id: string;
+  name: string;
+  description: string;
+  integrationLabel?: string;
+  howto: string;
+}[] = [
+  {
+    id: "tg-lead",
+    name: "Telegram · Лид-бот",
+    description: "Приём заявок из Telegram прямо в лиды.",
+    integrationLabel: "Telegram Lead Bot",
+    howto: "1) @BotFather → /newbot → токен. 2) В Vercel задай TELEGRAM_LEAD_BOT_TOKEN. 3) setWebhook на /api/telegram/lead-bot.",
+  },
+  {
+    id: "tg-notify",
+    name: "Telegram · Уведомления команды",
+    description: "Сообщения команде о новых лидах и оплатах.",
+    integrationLabel: "Telegram Internal Bot",
+    howto: "В Vercel задай TELEGRAM_INTERNAL_BOT_TOKEN и TELEGRAM_INTERNAL_CHAT_ID. Проверка: /api/telegram/internal-bot?test=1.",
+  },
+  {
+    id: "cold-search",
+    name: "Агент холодного поиска",
+    description: "Сбор лидов из Google Maps / OpenStreetMap.",
+    howto: "Запусти parser.py (tools/lead-parser) с адресом /api/agents/lead-intake. Лиды попадут в раздел «Лиды».",
+  },
+  {
+    id: "instagram",
+    name: "Instagram Direct",
+    description: "Ответы в Директ и сбор заявок.",
+    howto: "developers.facebook.com → создать приложение → Instagram Graph API → ключ добавь в «Свои API» ниже.",
+  },
+  {
+    id: "email",
+    name: "Email / SMTP",
+    description: "Письма клиентам и уведомления на почту.",
+    howto: "Возьми данные SMTP у почтового провайдера и добавь как подключение в «Свои API» (название EMAIL).",
+  },
+  {
+    id: "payments",
+    name: "Приём платежей",
+    description: "Онлайн-оплата (ЮKassa, Stripe и т.п.).",
+    howto: "Зарегистрируй платёжный сервис, получи API-ключ и добавь его в «Свои API». Вебхук — на /api/webhooks.",
+  },
+];
+
 function SectionShell({
   title,
   description,
@@ -142,6 +189,7 @@ export function SettingsClient({ data }: { data: SettingsData }) {
   const [connName, setConnName] = useState("");
   const [connUrl, setConnUrl] = useState("");
   const [connKey, setConnKey] = useState("");
+  const [openIntegration, setOpenIntegration] = useState<string | null>(null);
 
   function persistConnections(next: ExternalConnection[]) {
     const prev = connections;
@@ -548,6 +596,52 @@ export function SettingsClient({ data }: { data: SettingsData }) {
                   </span>
                 </div>
               ))}
+            </div>
+
+            {/* Интеграции (сервисы) */}
+            <div className="mt-6 space-y-3 border-t border-border pt-5">
+              <div>
+                <p className="text-sm font-medium">Интеграции</p>
+                <p className="text-xs text-muted-foreground">
+                  Подключай сервисы: нажми «Подключить» — покажем, где взять ключ и куда вставить.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {INTEGRATIONS_CATALOG.map((it) => {
+                  const configured = it.integrationLabel
+                    ? Boolean(data.integrations.find((i) => i.label === it.integrationLabel)?.configured)
+                    : false;
+                  const isOpen = openIntegration === it.id;
+                  return (
+                    <div key={it.id} className="rounded-lg border border-border bg-[#1B1B1F] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{it.name}</p>
+                          <p className="text-xs text-muted-foreground">{it.description}</p>
+                        </div>
+                        {configured ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                            <Check className="h-3.5 w-3.5" /> Подключено
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOpenIntegration(isOpen ? null : it.id)}
+                          >
+                            Подключить
+                          </Button>
+                        )}
+                      </div>
+                      {isOpen && !configured && (
+                        <p className="mt-2 whitespace-pre-wrap rounded-md bg-card p-2 text-xs text-muted-foreground">
+                          {it.howto}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="mt-6 space-y-3 border-t border-border pt-5">

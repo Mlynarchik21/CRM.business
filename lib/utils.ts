@@ -58,3 +58,19 @@ export function formatDateTimeGmt3(value: string | Date) {
 export function transactionId(id: string) {
   return `TX-${id.slice(0, 8).toUpperCase()}`
 }
+
+/** Короткая дата-время: "25.05.2026 13:00" (или "—" если пусто). */
+export function formatDateTimeShort(value: string | Date | null | undefined) {
+  if (!value) return "—"
+  const d = typeof value === "string" ? new Date(value) : value
+  if (Number.isNaN(d.getTime())) return "—"
+  return d
+    .toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .replace(",", "")
+}

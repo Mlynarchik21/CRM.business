@@ -115,7 +115,10 @@ export async function setLeadStatus(
   status: LeadStatus,
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const { error } = await supabase.from("leads").update({ status }).eq("id", id);
+  const { error } = await supabase
+    .from("leads")
+    .update({ status, last_contact_at: new Date().toISOString() })
+    .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
 
@@ -185,6 +188,13 @@ export async function addLeadComment(
 
   if (error) return { ok: false, error: error.message };
 
+  // Фиксируем последнее взаимодействие.
+  await supabase
+    .from("leads")
+    .update({ last_contact_at: new Date().toISOString() })
+    .eq("id", leadId);
+
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
   return { ok: true };
 }

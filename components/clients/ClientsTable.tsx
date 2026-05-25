@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { CLIENT_STATUS, LEAD_SOURCE_LABEL } from "@/lib/constants";
 import { CLIENT_STATUSES } from "@/lib/validations";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTimeShort, formatNumber } from "@/lib/utils";
 import type { Client } from "@/types";
 
 export type ClientTableItem = Client & {
@@ -133,6 +133,23 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
           </button>
         ),
         cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        id: "last_contact",
+        accessorFn: (row) => (row.last_contact_at ? new Date(row.last_contact_at).getTime() : 0),
+        header: ({ column }) => (
+          <button
+            className="flex items-center gap-1"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Последнее взаимодействие <ArrowUpDown className="h-3 w-3" />
+          </button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatDateTimeShort(row.original.last_contact_at)}
+          </span>
+        ),
       },
     ],
     [],

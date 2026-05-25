@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { LEAD_SOURCE_LABEL, LEAD_STATUS } from "@/lib/constants";
 import { LEAD_STATUSES } from "@/lib/validations";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatDateTimeShort } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 export type LeadTableLabel = {
@@ -211,6 +211,23 @@ export function LeadsTable({
         cell: ({ row }) => (
           <span className="text-muted-foreground">
             {formatDate(row.original.created_at)}
+          </span>
+        ),
+      },
+      {
+        id: "last_contact",
+        accessorFn: (row) => (row.last_contact_at ? new Date(row.last_contact_at).getTime() : 0),
+        header: ({ column }) => (
+          <button
+            className="flex items-center gap-1"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Последнее взаимодействие <ArrowUpDown className="h-3 w-3" />
+          </button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatDateTimeShort(row.original.last_contact_at)}
           </span>
         ),
       },

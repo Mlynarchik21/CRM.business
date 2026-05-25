@@ -138,7 +138,14 @@ export async function addClientComment(
 
   if (error) return { ok: false, error: error.message };
 
+  // Фиксируем последнее взаимодействие.
+  await supabase
+    .from("clients")
+    .update({ last_contact_at: new Date().toISOString() })
+    .eq("id", clientId);
+
   revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/clients");
   return { ok: true };
 }
 

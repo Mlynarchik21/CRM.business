@@ -28,8 +28,16 @@ import {
 } from "@/app/(dashboard)/settings/actions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ACCENT_PRESETS,
   type AccentKey,
@@ -175,6 +183,7 @@ export function SettingsClient({ data }: { data: SettingsData }) {
   const [changelog, setChangelog] = useState<ChangelogEntry[]>(data.changelog);
   const [clNumber, setClNumber] = useState("");
   const [clDesc, setClDesc] = useState("");
+  const [clOpen, setClOpen] = useState(false);
 
   function checkError(id: string) {
     startTransition(async () => {
@@ -220,6 +229,7 @@ export function SettingsClient({ data }: { data: SettingsData }) {
     ]);
     setClNumber("");
     setClDesc("");
+    setClOpen(false);
   }
 
   function fmtDateTime(value: string) {
@@ -721,19 +731,32 @@ export function SettingsClient({ data }: { data: SettingsData }) {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-[#1B1B1F] p-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="cl_number">Номер</Label>
-                    <Input id="cl_number" value={clNumber} onChange={(e) => setClNumber(e.target.value)} placeholder="напр. v1.4" className="w-32" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="cl_desc">Что изменили / добавили / удалили</Label>
-                    <Input id="cl_desc" value={clDesc} onChange={(e) => setClDesc(e.target.value)} placeholder="Добавлены уведомления и журнал ошибок" />
-                  </div>
-                  <Button onClick={addChangelogEntry} disabled={pending || !clDesc.trim()}>
-                    Добавить
-                  </Button>
+                <div className="flex justify-end">
+                  <Button onClick={() => setClOpen(true)}>Добавить</Button>
                 </div>
+
+                <Dialog open={clOpen} onOpenChange={setClOpen}>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Новая запись в журнал</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cl_number">Номер (необязательно)</Label>
+                        <Input id="cl_number" value={clNumber} onChange={(e) => setClNumber(e.target.value)} placeholder="напр. v1.4" className="w-40" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cl_desc">Что изменили / добавили / удалили</Label>
+                        <Textarea id="cl_desc" rows={3} value={clDesc} onChange={(e) => setClDesc(e.target.value)} placeholder="Добавлены уведомления и журнал ошибок" />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={addChangelogEntry} disabled={pending || !clDesc.trim()}>
+                        Сохранить
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {changelog.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Записей об обновлениях пока нет.</p>

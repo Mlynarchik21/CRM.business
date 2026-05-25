@@ -8,6 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { DeadlinesWidget } from "@/components/dashboard/DeadlinesWidget";
+import { JournalWidget } from "@/components/dashboard/JournalWidget";
 import { PipelineWidget, type PipelineDatum } from "@/components/dashboard/PipelineWidget";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { StatsCard } from "@/components/dashboard/StatsCard";
@@ -45,6 +46,8 @@ export default async function DashboardPage() {
     tasksRes,
     expectedPaymentsRes,
     supportRes,
+    changelogRes,
+    errorsRes,
   ] = await Promise.all([
     supabase.from("leads").select("*", { count: "exact", head: true }),
     supabase.from("clients").select("*", { count: "exact", head: true }),
@@ -79,7 +82,23 @@ export default async function DashboardPage() {
       .from("support_tickets")
       .select("*", { count: "exact", head: true })
       .not("status", "in", "(resolved,closed)"),
+    supabase.from("settings").select("value").eq("key", "changelog").maybeSingle<{ value: unknown }>(),
+    supabase
+      .from("error_logs")
+      .select("id, title, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3),
   ]);
+
+  const updates = (
+    Array.isArray(changelogRes.data?.value) ? (changelogRes.data!.value as { number: string; description: string; created_at: string }[]) : []
+  ).slice(0, 3);
+  const recentErrors = (errorsRes.data ?? []) as {
+    id: string;
+    title: string;
+    status: string;
+    created_at: string;
+  }[];
 
   const revenue = (paymentsRes.data ?? []).reduce(
     (sum, payment) => sum + Number(payment.amount ?? 0),
@@ -205,6 +224,8 @@ export default async function DashboardPage() {
         <DeadlinesWidget projects={deadlinesRes.data ?? []} />
         <TasksWidget tasks={watchTasks} />
       </div>
+
+      <JournalWidget updates={updates} errors={recentErrors} />
     </div>
   );
 }

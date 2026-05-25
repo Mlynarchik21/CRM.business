@@ -47,6 +47,7 @@ export const NAV_ITEMS = [
   { href: "/support", label: "Поддержка", icon: "LifeBuoy" },
   { href: "/analytics", label: "Аналитика", icon: "BarChart3" },
   { href: "/team", label: "Команда", icon: "UsersRound" },
+  { href: "/notifications", label: "Уведомления", icon: "Bell" },
   { href: "/agents", label: "Агенты", icon: "Bot" },
   { href: "/marketing", label: "Маркетинг", icon: "Megaphone" },
   { href: "/settings", label: "Настройки", icon: "Settings" },

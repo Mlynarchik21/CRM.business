@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { Bell, LogOut } from "lucide-react";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -35,14 +36,31 @@ export function Topbar({
   name,
   role,
   email,
+  notifCount = 0,
 }: {
   name: string;
   role: Role;
   email: string;
+  notifCount?: number;
 }) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-6">
       <GlobalSearch />
+
+      <div className="flex items-center gap-2">
+      <Link
+        href="/notifications"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+        title="Уведомления"
+        aria-label="Уведомления"
+      >
+        <Bell className="h-5 w-5" />
+        {notifCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+            {notifCount > 99 ? "99+" : notifCount}
+          </span>
+        )}
+      </Link>
 
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-3 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-card">
@@ -72,6 +90,7 @@ export function Topbar({
           </form>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     </header>
   );
 }

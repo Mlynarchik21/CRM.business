@@ -87,6 +87,156 @@ export function TasksTracker({
     );
   }
 
+  // Разделение: задачи внутри компании (без проекта) и задачи по проектам.
+  const companyTasks = tasks.filter((t) => !t.project_id);
+  const projectTasks = tasks.filter((t) => t.project_id);
+
+  function renderTask(task: TrackerTask, index: number) {
+    const isOpen = expanded === task.id;
+    const isDone = task.status === "done";
+    const checklist: ChecklistItem[] = Array.isArray(task.checklist) ? task.checklist : [];
+    const priority = PRIORITY[task.priority as Priority];
+    const statusMeta = TASK_STATUS[task.status];
+    const overdue =
+      task.due_date && !isDone && new Date(task.due_date).getTime() < Date.now();
+
+    return (
+      <div
+        key={task.id}
+        className={cn(
+          "rounded-xl border border-border transition-colors",
+          isDone && "border-primary/30 bg-primary/5",
+        )}
+      >
+        <div className="flex items-center gap-3 p-3">
+          <button
+            type="button"
+            onClick={() => toggleDone(task)}
+            disabled={pending}
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
+              isDone ? "border-primary bg-primary text-white" : "border-border",
+            )}
+            aria-label="Отметить выполнение"
+          >
+            {isDone && "✓"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setExpanded(isOpen ? null : task.id)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span className="text-xs text-muted-foreground">#{index + 1}</span>
+            <span className={cn("truncate font-medium", isDone && "line-through")}>
+              {task.title}
+            </span>
+            {priority && task.priority !== "medium" && (
+              <StatusBadge label={priority.label} color={priority.color} />
+            )}
+          </button>
+
+          {task.due_date && (
+            <span
+              className={cn(
+                "hidden shrink-0 text-xs sm:block",
+                overdue ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {formatDate(task.due_date, true)}
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setEditing(task)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label="Редактировать"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setExpanded(isOpen ? null : task.id)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label="Развернуть"
+          >
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
+            />
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger className="shrink-0 text-muted-foreground hover:text-foreground">
+              <span className="px-1 text-lg leading-none">⋯</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditing(task)}>
+                Редактировать
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => run(() => deleteTaskRecord(task.id), "Задача удалена")}
+              >
+                Удалить
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {isOpen && (
+          <div className="space-y-3 border-t border-border px-3 py-3 pl-11">
+            {task.description ? (
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {task.description}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Нажми на карандаш, чтобы добавить описание, срок и чек-лист.
+              </p>
+            )}
+
+            {checklist.length > 0 && (
+              <div className="space-y-1">
+                {checklist.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => run(() => toggleChecklistItem(task.id, item.id))}
+                    className="flex w-full items-start gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    {item.done ? (
+                      <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    ) : (
+                      <Square className="mt-0.5 h-4 w-4 shrink-0" />
+                    )}
+                    <span className={cn(item.done && "line-through")}>{item.text}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <StatusBadge label={statusMeta.label} color={statusMeta.color} />
+              {task.project_title && (
+                <span className="rounded-full bg-[#1B1B1F] px-2 py-0.5">
+                  Проект: {task.project_title}
+                </span>
+              )}
+              {task.client_name && (
+                <span className="rounded-full bg-[#1B1B1F] px-2 py-0.5">
+                  Клиент: {task.client_name}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Прогресс */}
@@ -156,155 +306,33 @@ export function TasksTracker({
               Задач пока нет. Добавь первую кнопкой «Добавить» или из шаблонов.
             </p>
           ) : (
-            tasks.map((task, index) => {
-              const isOpen = expanded === task.id;
-              const isDone = task.status === "done";
-              const checklist: ChecklistItem[] = Array.isArray(task.checklist)
-                ? task.checklist
-                : [];
-              const priority = PRIORITY[task.priority as Priority];
-              const statusMeta = TASK_STATUS[task.status];
-              const overdue =
-                task.due_date && !isDone && new Date(task.due_date).getTime() < Date.now();
-
-              return (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "rounded-xl border border-border transition-colors",
-                    isDone && "border-primary/30 bg-primary/5",
-                  )}
-                >
-                  <div className="flex items-center gap-3 p-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleDone(task)}
-                      disabled={pending}
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
-                        isDone ? "border-primary bg-primary text-white" : "border-border",
-                      )}
-                      aria-label="Отметить выполнение"
-                    >
-                      {isDone && "✓"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(isOpen ? null : task.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                    >
-                      <span className="text-xs text-muted-foreground">#{index + 1}</span>
-                      <span className={cn("truncate font-medium", isDone && "line-through")}>
-                        {task.title}
-                      </span>
-                      {priority && task.priority !== "medium" && (
-                        <StatusBadge label={priority.label} color={priority.color} />
-                      )}
-                    </button>
-
-                    {task.due_date && (
-                      <span
-                        className={cn(
-                          "hidden shrink-0 text-xs sm:block",
-                          overdue ? "text-destructive" : "text-muted-foreground",
-                        )}
-                      >
-                        {formatDate(task.due_date, true)}
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setEditing(task)}
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                      aria-label="Редактировать"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(isOpen ? null : task.id)}
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                      aria-label="Развернуть"
-                    >
-                      <ChevronDown
-                        className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
-                      />
-                    </button>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="shrink-0 text-muted-foreground hover:text-foreground">
-                        <span className="px-1 text-lg leading-none">⋯</span>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditing(task)}>
-                          Редактировать
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() =>
-                            run(() => deleteTaskRecord(task.id), "Задача удалена")
-                          }
-                        >
-                          Удалить
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Внутри компании · {companyTasks.length}
+                </p>
+                {companyTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Нет задач внутри компании.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {companyTasks.map((task, index) => renderTask(task, index))}
                   </div>
+                )}
+              </div>
 
-                  {isOpen && (
-                    <div className="space-y-3 border-t border-border px-3 py-3 pl-11">
-                      {task.description ? (
-                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                          {task.description}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          Нажми на карандаш, чтобы добавить описание, срок и чек-лист.
-                        </p>
-                      )}
-
-                      {checklist.length > 0 && (
-                        <div className="space-y-1">
-                          {checklist.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              disabled={pending}
-                              onClick={() => run(() => toggleChecklistItem(task.id, item.id))}
-                              className="flex w-full items-start gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
-                            >
-                              {item.done ? (
-                                <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                              ) : (
-                                <Square className="mt-0.5 h-4 w-4 shrink-0" />
-                              )}
-                              <span className={cn(item.done && "line-through")}>{item.text}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <StatusBadge label={statusMeta.label} color={statusMeta.color} />
-                        {task.project_title && (
-                          <span className="rounded-full bg-[#1B1B1F] px-2 py-0.5">
-                            Проект: {task.project_title}
-                          </span>
-                        )}
-                        {task.client_name && (
-                          <span className="rounded-full bg-[#1B1B1F] px-2 py-0.5">
-                            Клиент: {task.client_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  По проектам · {projectTasks.length}
+                </p>
+                {projectTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Нет задач по проектам.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {projectTasks.map((task, index) => renderTask(task, index))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

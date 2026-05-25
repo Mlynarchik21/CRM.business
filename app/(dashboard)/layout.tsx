@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ACCENT_PRESETS, DEFAULT_ACCENT, type AccentKey } from "@/lib/constants";
+import { getNotificationCount } from "@/lib/notifications";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/types";
 
@@ -36,6 +37,8 @@ export default async function DashboardLayout({
   const role: Role = profile?.role ?? "manager";
   const email = user.email ?? "";
 
+  const notifCount = await getNotificationCount(supabase);
+
   // Акцентный цвет из настроек применяется ко всему CRM через CSS-переменные.
   const accentRaw = typeof accentSetting?.value === "string" ? accentSetting.value : DEFAULT_ACCENT;
   const accent: AccentKey = (accentRaw in ACCENT_PRESETS ? accentRaw : DEFAULT_ACCENT) as AccentKey;
@@ -46,7 +49,7 @@ export default async function DashboardLayout({
       <style>{`:root{--primary:${accentHsl};--ring:${accentHsl};}`}</style>
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar name={name} role={role} email={email} />
+        <Topbar name={name} role={role} email={email} notifCount={notifCount} />
         <main className="flex-1 overflow-y-auto bg-background p-6">
           {children}
         </main>

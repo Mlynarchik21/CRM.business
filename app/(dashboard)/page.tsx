@@ -159,7 +159,6 @@ export default async function DashboardPage() {
         <StatsCard
           label="Выручка"
           value={formatCurrency(revenue)}
-          hint="Оплаченные платежи"
           icon={Wallet}
           accent="#22C55E"
           href="/payments"
@@ -184,7 +183,6 @@ export default async function DashboardPage() {
         <StatsCard
           label="Ожидаемые оплаты"
           value={formatCurrency(expectedPayments)}
-          hint="Ожидаемые платежи"
           icon={Wallet}
           accent="#F59E0B"
           href="/payments"

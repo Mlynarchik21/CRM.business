@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckSquare, ChevronDown, Pencil, Plus, Square } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckSquare, ChevronDown, Pencil, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import {
   createTaskRecord,
@@ -25,6 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PRIORITY, TASK_STATUS } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 import type { ChecklistItem, Priority, Task, TaskStatus } from "@/types";
@@ -58,6 +65,9 @@ export function TasksTracker({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<TrackerTask | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [sortKey, setSortKey] = useState<"due" | "priority">("due");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showDone, setShowDone] = useState(false);
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
@@ -90,6 +100,54 @@ export function TasksTracker({
   // Разделение: задачи внутри компании (без проекта) и задачи по проектам.
   const companyTasks = tasks.filter((t) => !t.project_id);
   const projectTasks = tasks.filter((t) => t.project_id);
+
+  const PRIO_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+
+  function sortTasks(list: TrackerTask[]) {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...list].sort((a, b) => {
+      if (sortKey === "priority") {
+        return ((PRIO_WEIGHT[a.priority] ?? 0) - (PRIO_WEIGHT[b.priority] ?? 0)) * dir;
+      }
+      const at = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+      const bt = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+      return (at - bt) * dir;
+    });
+  }
+
+  function renderGroup(title: string, list: TrackerTask[]) {
+    const active = sortTasks(list.filter((t) => t.status !== "done"));
+    const doneList = list.filter((t) => t.status === "done");
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title} · {active.length}
+        </p>
+        {active.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Нет невыполненных задач.</p>
+        ) : (
+          <div className="space-y-3">{active.map((t, i) => renderTask(t, i))}</div>
+        )}
+        {doneList.length > 0 && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowDone((v) => !v)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showDone && "rotate-180")} />
+              Выполненные · {doneList.length}
+            </button>
+            {showDone && (
+              <div className="mt-2 space-y-3 opacity-70">
+                {doneList.map((t, i) => renderTask(t, i))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   function renderTask(task: TrackerTask, index: number) {
     const isOpen = expanded === task.id;
@@ -307,31 +365,30 @@ export function TasksTracker({
             </p>
           ) : (
             <div className="space-y-6">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Внутри компании · {companyTasks.length}
-                </p>
-                {companyTasks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Нет задач внутри компании.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {companyTasks.map((task, index) => renderTask(task, index))}
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Сортировка:</span>
+                <Select value={sortKey} onValueChange={(v) => setSortKey(v as "due" | "priority")}>
+                  <SelectTrigger className="h-8 w-44 bg-card">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="due">По дате задачи</SelectItem>
+                    <SelectItem value="priority">По важности</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  title={sortDir === "asc" ? "По возрастанию" : "По убыванию"}
+                >
+                  {sortDir === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                </Button>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  По проектам · {projectTasks.length}
-                </p>
-                {projectTasks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Нет задач по проектам.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {projectTasks.map((task, index) => renderTask(task, index))}
-                  </div>
-                )}
-              </div>
+              {renderGroup("Внутри компании", companyTasks)}
+              {renderGroup("По проектам", projectTasks)}
             </div>
           )}
         </CardContent>

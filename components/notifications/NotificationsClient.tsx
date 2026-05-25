@@ -6,11 +6,13 @@ import {
   AlarmClock,
   Bell,
   CalendarClock,
+  ChevronDown,
   CreditCard,
   MessageSquare,
   Target,
   TriangleAlert,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn, formatDate } from "@/lib/utils";
 import type { NotificationItem, NotificationType } from "@/lib/notifications";
@@ -43,6 +45,7 @@ function timeText(value: string) {
 
 export function NotificationsClient({ items }: { items: NotificationItem[] }) {
   const [filter, setFilter] = useState<NotificationType | "all">("all");
+  const [open, setOpen] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -98,24 +101,50 @@ export function NotificationsClient({ items }: { items: NotificationItem[] }) {
           {filtered.map((n) => {
             const meta = TYPE_META[n.type];
             const Icon = meta.icon;
+            const isOpen = open === n.id;
             return (
-              <Link
-                key={n.id}
-                href={n.href}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-[#1B1B1F]"
-              >
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `${meta.color}1A`, color: meta.color }}
+              <div key={n.id} className="rounded-xl border border-border bg-card">
+                <button
+                  type="button"
+                  onClick={() => setOpen(isOpen ? null : n.id)}
+                  className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-[#1B1B1F]"
                 >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{n.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{n.subtitle}</p>
-                </div>
-                <span className="shrink-0 text-xs text-muted-foreground">{timeText(n.created_at)}</span>
-              </Link>
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: `${meta.color}1A`, color: meta.color }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{n.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{n.subtitle}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">{timeText(n.created_at)}</span>
+                  <ChevronDown
+                    className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
+                  />
+                </button>
+
+                {isOpen && (
+                  <div className="space-y-2 border-t border-border px-3 py-3 pl-14 text-sm">
+                    <p className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Тип</span>
+                      <span className="font-medium" style={{ color: meta.color }}>{meta.label}</span>
+                    </p>
+                    <p className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Когда</span>
+                      <span className="font-medium">{timeText(n.created_at)}</span>
+                    </p>
+                    <div>
+                      <p className="text-muted-foreground">Описание</p>
+                      <p className="mt-1 whitespace-pre-wrap">{n.subtitle || "Подробностей нет."}</p>
+                    </div>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={n.href}>Открыть</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

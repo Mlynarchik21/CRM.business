@@ -643,6 +643,50 @@ export function SettingsClient({ data }: { data: SettingsData }) {
                 Зарегистрировать вебхук: <code>https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=&lt;адрес&gt;</code>.
                 Проверка уведомлений: <code>{webhookBase}/api/telegram/internal-bot?test=1</code>.
               </p>
+
+              {/* Свои API */}
+              <div className="space-y-3 border-t border-border pt-5">
+                <div>
+                  <p className="text-sm font-medium">Свои API</p>
+                  <p className="text-xs text-muted-foreground">
+                    Подключай внешние сервисы (CRM, AmoCRM, рассылки и т.д.): название, базовый URL, ключ. Хранится в CRM.
+                  </p>
+                </div>
+
+                {connections.length > 0 && (
+                  <div className="space-y-2">
+                    {connections.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-[#1B1B1F] px-4 py-3"
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        {c.base_url && <span className="truncate text-xs text-muted-foreground">{c.base_url}</span>}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {c.api_key ? `${c.api_key.slice(0, 4)}••••` : "без ключа"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => persistConnections(connections.filter((x) => x.id !== c.id))}
+                          className="ml-auto text-muted-foreground hover:text-destructive"
+                          aria-label="Удалить"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto]">
+                  <Input value={connName} onChange={(e) => setConnName(e.target.value)} placeholder="Название" />
+                  <Input value={connUrl} onChange={(e) => setConnUrl(e.target.value)} placeholder="https://api.service.com" />
+                  <Input value={connKey} onChange={(e) => setConnKey(e.target.value)} placeholder="API-ключ" type="password" />
+                  <Button onClick={addConnection} disabled={pending || !connName.trim()}>
+                    Добавить
+                  </Button>
+                </div>
+              </div>
             </div>
           </SectionShell>
         )}
@@ -801,6 +845,37 @@ export function SettingsClient({ data }: { data: SettingsData }) {
                 <div className="rounded-lg border border-border bg-[#1B1B1F] px-4 py-3">
                   <p className="text-xs text-muted-foreground">Адрес приложения</p>
                   <p className="truncate text-sm font-medium">{webhookBase}</p>
+                </div>
+              </div>
+
+              {/* Резервное копирование */}
+              <div className="rounded-lg border border-border bg-[#1B1B1F] px-4 py-3">
+                <p className="text-sm font-medium">Резервное копирование данных</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Скачать копию всех данных (лиды, клиенты, проекты, оплаты, задачи и т.д.) в JSON.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild size="sm">
+                    <a href="/api/backup/export" download>
+                      Скачать резервную копию
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/backup/export");
+                        const text = await res.text();
+                        await navigator.clipboard.writeText(text);
+                        toast.success("Копия скопирована в буфер");
+                      } catch {
+                        toast.error("Не удалось скопировать");
+                      }
+                    }}
+                  >
+                    Скопировать в буфер
+                  </Button>
                 </div>
               </div>
 

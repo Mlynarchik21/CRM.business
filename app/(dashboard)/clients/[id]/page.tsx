@@ -65,7 +65,7 @@ export default async function ClientDetailPage({
 
   if (!client) notFound();
 
-  const [projectsRes, paymentsRes, commentsRes, leadRes] = await Promise.all([
+  const [projectsRes, paymentsRes, commentsRes, leadRes, leadCommentsRes] = await Promise.all([
     supabase
       .from("projects")
       .select("*")
@@ -100,17 +100,43 @@ export default async function ClientDetailPage({
             >
           >()
       : Promise.resolve({ data: null }),
+    client.lead_id
+      ? supabase
+          .from("comments")
+          .select("id, content, type, created_at, author:profiles(full_name)")
+          .eq("entity_type", "lead")
+          .eq("entity_id", client.lead_id)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
 
-  const comments: ThreadComment[] = (commentsRes.data ?? []).map((comment) => ({
+  function mapAuthor(author: unknown): { full_name: string } | null {
+    return Array.isArray(author)
+      ? ((author[0] as { full_name: string }) ?? null)
+      : ((author as { full_name: string } | null) ?? null);
+  }
+
+  const clientComments: ThreadComment[] = (commentsRes.data ?? []).map((comment) => ({
     id: comment.id as string,
     content: comment.content as string,
     type: comment.type as string,
     created_at: comment.created_at as string,
-    author: Array.isArray(comment.author)
-      ? (comment.author[0] ?? null)
-      : ((comment.author as { full_name: string } | null) ?? null),
+    author: mapAuthor(comment.author),
   }));
+
+  // Комментарии исходного лида — показываем здесь же, с пометкой «из лида».
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leadComments: ThreadComment[] = ((leadCommentsRes?.data ?? []) as any[]).map((c) => ({
+    id: `lead-${c.id}`,
+    content: c.content as string,
+    type: c.type as string,
+    created_at: c.created_at as string,
+    author: { full_name: `${mapAuthor(c.author)?.full_name ?? "Лид"} · из лида` },
+  }));
+
+  const comments: ThreadComment[] = [...clientComments, ...leadComments].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
   const statusMeta = CLIENT_STATUS[client.status];
   const projects = projectsRes.data ?? [];

@@ -138,7 +138,10 @@ export function ClientFormDialog({
           <DialogTitle>{isEdit ? "Редактировать клиента" : "Новый клиент"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Основное
+          </p>
           <div className="space-y-2">
             <Label htmlFor="name">Имя *</Label>
             <Input id="name" {...register("name")} placeholder="Иван Петров" />
@@ -188,6 +191,9 @@ export function ClientFormDialog({
             />
           </div>
 
+          <p className="border-t border-border pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Контакты
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="telegram_username">Telegram</Label>
@@ -214,6 +220,20 @@ export function ClientFormDialog({
               {errors.email && (
                 <p className="text-xs text-destructive">{errors.email.message}</p>
               )}
+            </div>
+          </div>
+
+          <p className="border-t border-border pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Локация, источник и ссылки
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="country">Страна</Label>
+              <Input id="country" {...register("country")} placeholder="Беларусь" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">Город</Label>
+              <Input id="city" {...register("city")} placeholder="Минск" />
             </div>
           </div>
 
@@ -269,20 +289,11 @@ export function ClientFormDialog({
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="country">Страна</Label>
-              <Input id="country" {...register("country")} placeholder="Беларусь" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">Город</Label>
-              <Input id="city" {...register("city")} placeholder="Минск" />
-            </div>
-          </div>
-
+          <p className="border-t border-border pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Заметки
+          </p>
           <div className="space-y-2">
-            <Label htmlFor="notes">Заметки</Label>
-            <Textarea id="notes" rows={4} {...register("notes")} />
+            <Textarea id="notes" rows={4} {...register("notes")} placeholder="Любые заметки по клиенту" />
           </div>
 
           <DialogFooter>

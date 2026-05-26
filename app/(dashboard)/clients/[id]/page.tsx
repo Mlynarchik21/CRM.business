@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, MapPin, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink, MapPin, Pencil, Plus } from "lucide-react";
 import { addClientComment, updateClientNotes } from "@/app/(dashboard)/clients/actions";
 import { ClientArchiveButton } from "@/components/clients/ClientArchiveButton";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
@@ -34,17 +34,12 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { Client, Lead, Payment, Project } from "@/types";
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+/** Компактная строка «лейбл → значение» для премиум-карточки. */
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
-      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 text-right text-sm font-medium">{value || "—"}</div>
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0 text-right text-sm">{value || <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }
@@ -202,106 +197,98 @@ export default async function ClientDetailPage({
           <TabsTrigger value="files">Файлы</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <TabsContent value="overview" className="grid gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          {/* Контакты + подробности */}
           <Card>
-            <CardHeader>
-              <CardTitle>Информация</CardTitle>
-            </CardHeader>
-            <CardContent className="divide-y divide-border">
-              <InfoRow label="ID пользователя" value={`#${crmId}`} />
-              <InfoRow label="Компания" value={client.company_name} />
-              <InfoRow label="ЛПР (доп. контакт)" value={client.decision_maker} />
-              <InfoRow
-                label="Telegram"
-                value={<ContactValue type="telegram" value={client.telegram_username} />}
-              />
-              <InfoRow
-                label="Телефон"
-                value={<ContactValue type="phone" value={client.phone} />}
-              />
-              {client.extra_phone && (
-                <InfoRow
-                  label="Второй телефон"
-                  value={<ContactValue type="phone" value={client.extra_phone} />}
-                />
+            <CardContent className="space-y-4 p-4">
+              <div className="space-y-0.5">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Контакты
+                </p>
+                <Field label="Telegram" value={<ContactValue type="telegram" value={client.telegram_username} />} />
+                <Field label="Телефон" value={<ContactValue type="phone" value={client.phone} />} />
+                {client.extra_phone && (
+                  <Field label="2-й телефон" value={<ContactValue type="phone" value={client.extra_phone} />} />
+                )}
+                <Field label="Email" value={<ContactValue type="email" value={client.email} />} />
+                {client.decision_maker && <Field label="ЛПР" value={client.decision_maker} />}
+              </div>
+
+              {(client.maps_url || (Array.isArray(client.links) && client.links.length > 0)) && (
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  {client.maps_url && (
+                    <a
+                      href={client.maps_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      На картах
+                    </a>
+                  )}
+                  {(client.links ?? []).map((l) => (
+                    <a
+                      key={l.id}
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      {l.label || "Ссылка"}
+                    </a>
+                  ))}
+                </div>
               )}
-              <InfoRow
-                label="Email"
-                value={<ContactValue type="email" value={client.email} />}
-              />
-              {client.maps_url && (
-                <InfoRow
-                  label="На картах"
-                  value={
-                    <Button asChild size="sm" variant="outline">
-                      <a href={client.maps_url} target="_blank" rel="noreferrer">
-                        <MapPin className="mr-1 h-3.5 w-3.5" />
-                        Открыть на картах
-                      </a>
-                    </Button>
-                  }
-                />
-              )}
-              {Array.isArray(client.links) && client.links.length > 0 && (
-                <InfoRow
-                  label="Ссылки"
-                  value={
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {client.links.map((l) => (
-                        <a
-                          key={l.id}
-                          href={l.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {l.label || "Ссылка"}
-                        </a>
-                      ))}
-                    </div>
-                  }
-                />
-              )}
-              <InfoRow label="Страна" value={client.country} />
-              <InfoRow label="Город" value={client.city} />
-              <InfoRow
-                label="Источник"
-                value={
-                  client.source
-                    ? LEAD_SOURCE_LABEL[client.source as keyof typeof LEAD_SOURCE_LABEL] ?? client.source
-                    : "—"
-                }
-              />
-              <InfoRow label="Проекты" value={formatNumber(client.projects_count)} />
-              <InfoRow label="Оплачено" value={formatCurrency(client.total_paid)} />
+
+              <details className="group rounded-lg border border-border">
+                <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  Подробнее о клиенте
+                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="space-y-0.5 border-t border-border px-3 py-2">
+                  <Field label="ID" value={`#${crmId}`} />
+                  <Field label="Компания" value={client.company_name} />
+                  <Field label="Страна" value={client.country} />
+                  <Field label="Город" value={client.city} />
+                  <Field
+                    label="Источник"
+                    value={
+                      client.source
+                        ? LEAD_SOURCE_LABEL[client.source as keyof typeof LEAD_SOURCE_LABEL] ?? client.source
+                        : "—"
+                    }
+                  />
+                  <Field label="Проектов" value={formatNumber(client.projects_count)} />
+                  <Field label="Оплачено" value={formatCurrency(client.total_paid)} />
+                </div>
+              </details>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
+          {/* Правая колонка */}
+          <div className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Сводка</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Проектов</p>
-                  <p className="mt-1 text-2xl font-semibold">{formatNumber(projects.length)}</p>
+              <CardContent className="grid grid-cols-3 gap-3 p-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Проектов</p>
+                  <p className="mt-0.5 text-xl font-semibold">{formatNumber(projects.length)}</p>
                 </div>
-                <div className="rounded-xl bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Платежей</p>
-                  <p className="mt-1 text-2xl font-semibold">{formatNumber(payments.length)}</p>
+                <div>
+                  <p className="text-xs text-muted-foreground">Платежей</p>
+                  <p className="mt-0.5 text-xl font-semibold">{formatNumber(payments.length)}</p>
                 </div>
-                <div className="rounded-xl bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Сумма</p>
-                  <p className="mt-1 text-2xl font-semibold">{formatCurrency(client.total_paid)}</p>
+                <div>
+                  <p className="text-xs text-muted-foreground">Оплачено</p>
+                  <p className="mt-0.5 text-xl font-semibold text-primary">{formatCurrency(client.total_paid)}</p>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Заметки</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Заметки</CardTitle>
               </CardHeader>
               <CardContent>
                 <ClientNotesEditor
@@ -311,7 +298,17 @@ export default async function ClientDetailPage({
               </CardContent>
             </Card>
 
-            <ClientLeadInfoPanel lead={lead} />
+            {lead && (
+              <details className="group rounded-xl border border-border bg-card">
+                <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-medium hover:text-primary">
+                  Информация о лиде
+                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-border p-4 pt-3">
+                  <ClientLeadInfoPanel lead={lead} />
+                </div>
+              </details>
+            )}
           </div>
         </TabsContent>
 

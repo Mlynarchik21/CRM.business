@@ -16,6 +16,17 @@ function normalize<T extends Record<string, unknown>>(obj: T) {
   return out;
 }
 
+// Поля из миграции 009 — если её ещё не применили, отбрасываем их и сохраняем остальное.
+const FIELDS_009 = ["decision_maker", "extra_phone", "maps_url", "links"];
+function isMissingColumn(msg?: string) {
+  return !!msg && (/schema cache/i.test(msg) || /column/i.test(msg));
+}
+function stripNewFields(obj: Record<string, unknown>) {
+  const out = { ...obj };
+  for (const k of FIELDS_009) delete out[k];
+  return out;
+}
+
 async function currentProfileId(
   supabase: ReturnType<typeof createClient>,
 ): Promise<string | null> {
@@ -47,14 +58,19 @@ export async function createClientRecord(
   const supabase = createClient();
   const assignedTo = await currentProfileId(supabase);
 
-  const payload = normalize(parsed.data);
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({ ...payload, assigned_to: assignedTo })
-    .select("id")
-    .single();
+  const payload = { ...normalize(parsed.data), assigned_to: assignedTo };
+  let { data, error } = await supabase.from("clients").insert(payload).select("id").single();
 
-  if (error) return { ok: false, error: error.message };
+  // Фолбэк: миграция 009 не применена — сохраняем без новых полей.
+  if (error && isMissingColumn(error.message)) {
+    ({ data, error } = await supabase
+      .from("clients")
+      .insert(stripNewFields(payload))
+      .select("id")
+      .single());
+  }
+
+  if (error || !data) return { ok: false, error: error?.message ?? "Ошибка" };
 
   revalidatePath(`/clients/${data.id}`);
   revalidatePath("/clients");
@@ -76,10 +92,13 @@ export async function updateClientRecord(
   }
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("clients")
-    .update(normalize(parsed.data))
-    .eq("id", id);
+  const payload = normalize(parsed.data);
+  let { error } = await supabase.from("clients").update(payload).eq("id", id);
+
+  // Фолбэк: миграция 009 не применена — сохраняем без новых полей.
+  if (error && isMissingColumn(error.message)) {
+    ({ error } = await supabase.from("clients").update(stripNewFields(payload)).eq("id", id));
+  }
 
   if (error) return { ok: false, error: error.message };
 
@@ -185,6 +204,10 @@ export async function createClientFromLead(leadId: string): Promise<ActionResult
       email: string | null;
       source: string | null;
       notes: string | null;
+      last_contact_at: string | null;
+      extra_phone: string | null;
+      decision_maker: string | null;
+      maps_url: string | null;
     }>();
 
   if (leadError || !lead) {
@@ -202,24 +225,36 @@ export async function createClientFromLead(leadId: string): Promise<ActionResult
   }
 
   const assignedTo = await currentProfileId(supabase);
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({
-      lead_id: lead.id,
-      name: lead.name,
-      telegram_username: lead.telegram_username,
-      telegram_id: lead.telegram_id,
-      phone: lead.phone,
-      email: lead.email,
-      source: lead.source,
-      notes: lead.notes,
-      assigned_to: assignedTo,
-      status: "new",
-    })
-    .select("id")
-    .single();
+  const clientPayload: Record<string, unknown> = {
+    lead_id: lead.id,
+    name: lead.name,
+    telegram_username: lead.telegram_username,
+    telegram_id: lead.telegram_id,
+    phone: lead.phone,
+    email: lead.email,
+    source: lead.source,
+    notes: lead.notes,
+    assigned_to: assignedTo,
+    status: "new",
+    // Переносим последнее взаимодействие и доп. контакты лида.
+    last_contact_at: lead.last_contact_at ?? null,
+    extra_phone: lead.extra_phone ?? null,
+    decision_maker: lead.decision_maker ?? null,
+    maps_url: lead.maps_url ?? null,
+  };
 
-  if (error) return { ok: false, error: error.message };
+  let { data, error } = await supabase.from("clients").insert(clientPayload).select("id").single();
+
+  // Фолбэк: миграция 009 не применена — без новых полей.
+  if (error && isMissingColumn(error.message)) {
+    ({ data, error } = await supabase
+      .from("clients")
+      .insert(stripNewFields(clientPayload))
+      .select("id")
+      .single());
+  }
+
+  if (error || !data) return { ok: false, error: error?.message ?? "Ошибка" };
 
   // История: фиксируем конвертацию и на клиенте, и на исходном лиде.
   await logActivity(supabase, {

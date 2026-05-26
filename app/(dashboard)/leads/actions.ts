@@ -19,6 +19,17 @@ function normalize<T extends Record<string, unknown>>(obj: T) {
   return out;
 }
 
+// Поля из миграции 009 (доп. контакты). Если её ещё нет — отбрасываем их.
+const FIELDS_009 = ["extra_phone", "decision_maker", "maps_url"];
+function isMissingColumn(msg?: string) {
+  return !!msg && (/schema cache/i.test(msg) || /column/i.test(msg));
+}
+function stripNewFields(obj: Record<string, unknown>) {
+  const out = { ...obj };
+  for (const k of FIELDS_009) delete out[k];
+  return out;
+}
+
 async function currentProfileId(
   supabase: ReturnType<typeof createClient>,
 ): Promise<string | null> {
@@ -50,7 +61,12 @@ export async function createLead(input: LeadFormValues): Promise<ActionResult> {
   const assignedTo = await currentProfileId(supabase);
 
   const values = { ...normalize(parsed.data), assigned_to: assignedTo };
-  const res = await applyLeadWithDedup(supabase, values, { userId: assignedTo });
+  let res = await applyLeadWithDedup(supabase, values, { userId: assignedTo });
+
+  // Фолбэк: миграция 009 не применена — создаём без новых полей.
+  if (!res.ok && isMissingColumn(res.error)) {
+    res = await applyLeadWithDedup(supabase, stripNewFields(values), { userId: assignedTo });
+  }
 
   if (!res.ok) return { ok: false, error: res.error };
 
@@ -87,15 +103,19 @@ export async function updateLead(
   }
 
   const supabase = createClient();
-  const { error } = await supabase
-    .from("leads")
-    .update(normalize(parsed.data))
-    .eq("id", id);
+  const payload = normalize(parsed.data);
+  let { error } = await supabase.from("leads").update(payload).eq("id", id);
+
+  // Фолбэк: миграция 009 не применена — сохраняем без новых полей.
+  if (error && isMissingColumn(error.message)) {
+    ({ error } = await supabase.from("leads").update(stripNewFields(payload)).eq("id", id));
+  }
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/");
   revalidatePath("/analytics");
+  revalidatePath("/leads");
 
   await logActivity(supabase, {
     action: "lead.updated",

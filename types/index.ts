@@ -163,6 +163,10 @@ export interface Lead {
   next_action_at: Timestamp | null;
   last_contact_at: Timestamp | null;
   notes: string | null;
+  // Доп. контакты (миграция 009).
+  extra_phone?: string | null;
+  decision_maker?: string | null;
+  maps_url?: string | null;
   // Дедупликация (миграция 002). Поля nullable/со значениями по умолчанию.
   is_duplicate?: boolean;
   duplicate_of?: UUID | null;
@@ -202,8 +206,19 @@ export interface Client {
   last_payment_at: Timestamp | null;
   notes: string | null;
   archived?: boolean;
+  // Доп. контакты (миграция 009).
+  extra_phone?: string | null;
+  decision_maker?: string | null;
+  maps_url?: string | null;
+  links?: ClientLink[];
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export interface ClientLink {
+  id: string;
+  label: string;
+  url: string;
 }
 
 export interface Deal {

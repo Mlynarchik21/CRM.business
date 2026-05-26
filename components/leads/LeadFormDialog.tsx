@@ -40,6 +40,9 @@ function defaults(lead?: Lead): LeadFormValues {
     name: lead?.name ?? "",
     telegram_username: lead?.telegram_username ?? "",
     phone: lead?.phone ?? "",
+    extra_phone: lead?.extra_phone ?? "",
+    decision_maker: lead?.decision_maker ?? "",
+    maps_url: lead?.maps_url ?? "",
     email: lead?.email ?? "",
     source: lead?.source ?? "manual",
     service_interest: lead?.service_interest ?? "",
@@ -202,6 +205,22 @@ export function LeadFormDialog({
                 <p className="text-xs text-destructive">{errors.email.message}</p>
               )}
             </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="extra_phone">Второй телефон</Label>
+              <Input id="extra_phone" {...register("extra_phone")} placeholder="+375... (необязательно)" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="decision_maker">Имя ЛПР (доп. контакт)</Label>
+              <Input id="decision_maker" {...register("decision_maker")} placeholder="Кто принимает решение" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="maps_url">Ссылка на картах (Google Maps / 2ГИС)</Label>
+            <Input id="maps_url" {...register("maps_url")} placeholder="https://maps.google.com/..." />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

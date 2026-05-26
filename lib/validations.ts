@@ -101,10 +101,19 @@ export const PAYMENT_METHODS = [
   "other",
 ] as const;
 
+export const clientLinkSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  url: z.string(),
+});
+
 export const leadSchema = z.object({
   name: z.string().trim().min(1, "Укажите имя"),
   telegram_username: z.string().trim().optional(),
   phone: z.string().trim().optional(),
+  extra_phone: z.string().trim().optional(),
+  decision_maker: z.string().trim().optional(),
+  maps_url: z.string().trim().optional(),
   email: z
     .union([z.literal(""), z.string().trim().email("Некорректный email")])
     .optional(),
@@ -122,6 +131,10 @@ export const clientSchema = z.object({
   company_name: z.string().trim().optional(),
   telegram_username: z.string().trim().optional(),
   phone: z.string().trim().optional(),
+  extra_phone: z.string().trim().optional(),
+  decision_maker: z.string().trim().optional(),
+  maps_url: z.string().trim().optional(),
+  links: z.array(clientLinkSchema).optional(),
   email: z
     .union([z.literal(""), z.string().trim().email("Некорректный email")])
     .optional(),

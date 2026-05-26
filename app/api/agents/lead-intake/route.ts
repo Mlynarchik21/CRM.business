@@ -75,6 +75,7 @@ async function ingestOne(
     await supabase
       .from("leads")
       .update({
+        maps_url: item.maps_url ?? null,
         cold_search: {
           found_at: item.query_source ? `Google Maps · ${item.query_source}` : "Google Maps",
           business_type: niche,

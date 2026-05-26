@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil } from "lucide-react";
 import { LeadQuickActions } from "@/components/leads/LeadQuickActions";
 import { LeadFormDialog } from "@/components/leads/LeadFormDialog";
 import { ColdSearchPanel } from "@/components/leads/ColdSearchPanel";
@@ -153,10 +153,32 @@ export default async function LeadDetailPage({
               label="Телефон"
               value={<ContactValue type="phone" value={lead.phone} />}
             />
+            {lead.extra_phone && (
+              <InfoRow
+                label="Второй телефон"
+                value={<ContactValue type="phone" value={lead.extra_phone} />}
+              />
+            )}
             <InfoRow
               label="Email"
               value={<ContactValue type="email" value={lead.email} />}
             />
+            {lead.decision_maker && (
+              <InfoRow label="ЛПР (доп. контакт)" value={lead.decision_maker} />
+            )}
+            {lead.maps_url && (
+              <InfoRow
+                label="На картах"
+                value={
+                  <Button asChild size="sm" variant="outline">
+                    <a href={lead.maps_url} target="_blank" rel="noreferrer">
+                      <MapPin className="mr-1 h-3.5 w-3.5" />
+                      Открыть на картах
+                    </a>
+                  </Button>
+                }
+              />
+            )}
             <InfoRow label="Откуда пришёл" value={LEAD_SOURCE_LABEL[lead.source]} />
             <InfoRow label="Что ищет" value={lead.service_interest || "—"} />
             <InfoRow label="Бюджет" value={budgetText(lead)} />

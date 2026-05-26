@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, MapPin, Pencil, Plus } from "lucide-react";
 import { addClientComment, updateClientNotes } from "@/app/(dashboard)/clients/actions";
 import { ClientArchiveButton } from "@/components/clients/ClientArchiveButton";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
@@ -184,6 +184,7 @@ export default async function ClientDetailPage({
             <CardContent className="divide-y divide-border">
               <InfoRow label="ID пользователя" value={`#${crmId}`} />
               <InfoRow label="Компания" value={client.company_name} />
+              <InfoRow label="ЛПР (доп. контакт)" value={client.decision_maker} />
               <InfoRow
                 label="Telegram"
                 value={<ContactValue type="telegram" value={client.telegram_username} />}
@@ -192,10 +193,50 @@ export default async function ClientDetailPage({
                 label="Телефон"
                 value={<ContactValue type="phone" value={client.phone} />}
               />
+              {client.extra_phone && (
+                <InfoRow
+                  label="Второй телефон"
+                  value={<ContactValue type="phone" value={client.extra_phone} />}
+                />
+              )}
               <InfoRow
                 label="Email"
                 value={<ContactValue type="email" value={client.email} />}
               />
+              {client.maps_url && (
+                <InfoRow
+                  label="На картах"
+                  value={
+                    <Button asChild size="sm" variant="outline">
+                      <a href={client.maps_url} target="_blank" rel="noreferrer">
+                        <MapPin className="mr-1 h-3.5 w-3.5" />
+                        Открыть на картах
+                      </a>
+                    </Button>
+                  }
+                />
+              )}
+              {Array.isArray(client.links) && client.links.length > 0 && (
+                <InfoRow
+                  label="Ссылки"
+                  value={
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {client.links.map((l) => (
+                        <a
+                          key={l.id}
+                          href={l.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {l.label || "Ссылка"}
+                        </a>
+                      ))}
+                    </div>
+                  }
+                />
+              )}
               <InfoRow label="Страна" value={client.country} />
               <InfoRow label="Город" value={client.city} />
               <InfoRow

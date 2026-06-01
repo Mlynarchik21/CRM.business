@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/history";
 import { createClient } from "@/lib/supabase/server";
 import { clientSchema, type ClientFormValues } from "@/lib/validations";
+import type { ClientStatus } from "@/types";
 
 type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -256,6 +257,11 @@ export async function createClientFromLead(leadId: string): Promise<ActionResult
 
   if (error || !data) return { ok: false, error: error?.message ?? "Ошибка" };
 
+  await supabase
+    .from("leads")
+    .update({ status: "bought", last_contact_at: new Date().toISOString() })
+    .eq("id", leadId);
+
   // История: фиксируем конвертацию и на клиенте, и на исходном лиде.
   await logActivity(supabase, {
     action: "client.created_from_lead",
@@ -272,7 +278,49 @@ export async function createClientFromLead(leadId: string): Promise<ActionResult
     userId: assignedTo,
   });
 
+  revalidatePath("/leads");
   revalidatePath("/clients");
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/");
   return { ok: true, id: data.id };
+}
+
+export async function bulkSetClientStatus(
+  ids: string[],
+  status: ClientStatus,
+): Promise<ActionResult> {
+  if (ids.length === 0) {
+    return { ok: false, error: "Выберите хотя бы одного клиента" };
+  }
+  if (ids.length > 2) {
+    return { ok: false, error: "Можно выбрать не более 2 клиентов" };
+  }
+
+  const supabase = createClient();
+  const userId = await currentProfileId(supabase);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("clients")
+    .update({ status, last_contact_at: now })
+    .in("id", ids);
+
+  if (error) return { ok: false, error: error.message };
+
+  await Promise.all(
+    ids.map((id) =>
+      logActivity(supabase, {
+        action: "client.updated",
+        entityType: "client",
+        entityId: id,
+        metadata: { status, bulk: true },
+        userId,
+      }),
+    ),
+  );
+
+  revalidatePath("/clients");
+  revalidatePath("/");
+  for (const id of ids) revalidatePath(`/clients/${id}`);
+  return { ok: true };
 }

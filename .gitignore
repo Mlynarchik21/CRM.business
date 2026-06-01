@@ -49,3 +49,11 @@ leads_backup.csv
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# graphify (regenerate locally)
+/graphify-out/
+.graphify_detect.json
+.graphify_*
+
+# Ruflo local caches (if heavy)
+.claude-flow/

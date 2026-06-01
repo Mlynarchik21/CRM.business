@@ -1,231 +1,68 @@
-import {
-  AlarmClock,
-  FolderKanban,
-  LifeBuoy,
-  ListChecks,
-  Target,
-  Users,
-  Wallet,
-} from "lucide-react";
-import { DeadlinesWidget } from "@/components/dashboard/DeadlinesWidget";
-import { JournalWidget } from "@/components/dashboard/JournalWidget";
-import { PipelineWidget, type PipelineDatum } from "@/components/dashboard/PipelineWidget";
-import { RecentActivity } from "@/components/dashboard/RecentActivity";
-import { StatsCard } from "@/components/dashboard/StatsCard";
-import { TasksWidget } from "@/components/dashboard/TasksWidget";
-import { DEAL_STAGE } from "@/lib/constants";
+import Link from "next/link";
+import { FolderKanban, Target, Users } from "lucide-react";
+import { OpenDashboardButton } from "@/components/layout/OpenDashboardButton";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import type { DealStage, Task } from "@/types";
+import { formatNumber } from "@/lib/utils";
 
-const FUNNEL_STAGES: DealStage[] = [
-  "new_lead",
-  "qualification",
-  "discussion",
-  "proposal",
-  "negotiation",
-  "waiting_payment",
-];
-
-export default async function DashboardPage() {
+export default async function HomePage() {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [
-    leadsRes,
-    clientsRes,
-    projectsRes,
-    paymentsRes,
-    dealsRes,
-    recentLeadsRes,
-    deadlinesRes,
-    profileRes,
-    tasksRes,
-    expectedPaymentsRes,
-    supportRes,
-    changelogRes,
-    errorsRes,
-  ] = await Promise.all([
-    supabase.from("leads").select("*", { count: "exact", head: true }),
-    supabase.from("clients").select("*", { count: "exact", head: true }),
-    supabase
-      .from("projects")
-      .select("*", { count: "exact", head: true })
-      .not("status", "in", "(completed,cancelled)"),
-    supabase.from("payments").select("amount").eq("status", "paid"),
-    supabase.from("deals").select("stage, amount").eq("status", "open"),
-    supabase
-      .from("leads")
-      .select("id, name, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("projects")
-      .select("id, title, deadline, status")
-      .gte("deadline", new Date().toISOString().slice(0, 10))
-      .order("deadline", { ascending: true })
-      .limit(6),
-    supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("auth_user_id", user!.id)
-      .maybeSingle<{ full_name: string }>(),
-    supabase
-      .from("tasks")
-      .select("id, title, due_date, priority, status")
-      .returns<Pick<Task, "id" | "title" | "due_date" | "priority" | "status">[]>(),
-    supabase.from("payments").select("amount").eq("status", "expected"),
-    supabase
-      .from("support_tickets")
-      .select("*", { count: "exact", head: true })
-      .not("status", "in", "(resolved,closed)"),
-    supabase.from("settings").select("value").eq("key", "changelog").maybeSingle<{ value: unknown }>(),
-    supabase
-      .from("error_logs")
-      .select("id, title, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(3),
-  ]);
-
-  const updates = (
-    Array.isArray(changelogRes.data?.value) ? (changelogRes.data!.value as { number: string; description: string; created_at: string }[]) : []
-  ).slice(0, 3);
-  const recentErrors = (errorsRes.data ?? []) as {
-    id: string;
-    title: string;
-    status: string;
-    created_at: string;
-  }[];
-
-  const revenue = (paymentsRes.data ?? []).reduce(
-    (sum, payment) => sum + Number(payment.amount ?? 0),
-    0,
-  );
-
-  const expectedPayments = (expectedPaymentsRes.data ?? []).reduce(
-    (sum, payment) => sum + Number(payment.amount ?? 0),
-    0,
-  );
-
-  const allTasks = tasksRes.data ?? [];
-  const now = Date.now();
-  const activeTasks = allTasks.filter(
-    (task) => task.status !== "done" && task.status !== "blocked",
-  ).length;
-  const overdueTasks = allTasks.filter(
-    (task) =>
-      task.due_date && task.status !== "done" && new Date(task.due_date).getTime() < now,
-  ).length;
-
-  // Для виджета: задачи с дедлайном (не завершённые), сначала просроченные/ближайшие.
-  const watchTasks = allTasks
-    .filter((task) => task.due_date && task.status !== "done")
-    .sort(
-      (a, b) =>
-        new Date(a.due_date as string).getTime() - new Date(b.due_date as string).getTime(),
-    )
-    .slice(0, 6);
-
-  const aggregate = new Map<string, { count: number; amount: number }>();
-  for (const deal of dealsRes.data ?? []) {
-    const current = aggregate.get(deal.stage) ?? { count: 0, amount: 0 };
-    current.count += 1;
-    current.amount += Number(deal.amount ?? 0);
-    aggregate.set(deal.stage, current);
-  }
-
-  const pipeline: PipelineDatum[] = FUNNEL_STAGES.map((stage) => ({
-    label: DEAL_STAGE[stage].label,
-    color: DEAL_STAGE[stage].color,
-    count: aggregate.get(stage)?.count ?? 0,
-    amount: aggregate.get(stage)?.amount ?? 0,
-  }));
+  const [{ count: leadsCount }, { count: clientsCount }, { count: projectsCount }] =
+    await Promise.all([
+      supabase.from("leads").select("*", { count: "exact", head: true }),
+      supabase.from("clients").select("*", { count: "exact", head: true }),
+      supabase
+        .from("projects")
+        .select("*", { count: "exact", head: true })
+        .not("status", "in", "(completed,cancelled)"),
+    ]);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 py-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Дашборд</h1>
-        <p className="text-muted-foreground">
-          Привет, {profileRes.data?.full_name ?? user?.email}. Здесь вся текущая сводка по студии.
+        <h1 className="text-2xl font-semibold tracking-tight">Главная</h1>
+        <p className="mt-1 text-muted-foreground">
+          Рабочее пространство студии. Дашборд открывается выдвижной панелью слева — не
+          занимает весь экран.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          label="Лиды"
-          value={formatNumber(leadsRes.count ?? 0)}
-          icon={Target}
-          accent="#22C55E"
+      <div className="flex flex-wrap gap-2">
+        <OpenDashboardButton />
+        <Button variant="secondary" asChild>
+          <Link href="/leads">
+            <Target className="mr-2 h-4 w-4" />
+            Лиды ({formatNumber(leadsCount ?? 0)})
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link
           href="/leads"
-        />
-        <StatsCard
-          label="Клиенты"
-          value={formatNumber(clientsRes.count ?? 0)}
-          icon={Users}
-          accent="#8B5CF6"
+          className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary"
+        >
+          <Target className="mb-2 h-5 w-5 text-primary" />
+          <p className="font-medium">Лиды</p>
+          <p className="text-2xl font-semibold">{formatNumber(leadsCount ?? 0)}</p>
+        </Link>
+        <Link
           href="/clients"
-        />
-        <StatsCard
-          label="Активные проекты"
-          value={formatNumber(projectsRes.count ?? 0)}
-          icon={FolderKanban}
-          accent="#F97316"
+          className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary"
+        >
+          <Users className="mb-2 h-5 w-5 text-primary" />
+          <p className="font-medium">Клиенты</p>
+          <p className="text-2xl font-semibold">{formatNumber(clientsCount ?? 0)}</p>
+        </Link>
+        <Link
           href="/projects"
-        />
-        <StatsCard
-          label="Выручка"
-          value={formatCurrency(revenue)}
-          icon={Wallet}
-          accent="#22C55E"
-          href="/payments"
-        />
+          className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary"
+        >
+          <FolderKanban className="mb-2 h-5 w-5 text-primary" />
+          <p className="font-medium">Проекты</p>
+          <p className="text-2xl font-semibold">{formatNumber(projectsCount ?? 0)}</p>
+        </Link>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          label="Задачи в работе"
-          value={formatNumber(activeTasks)}
-          icon={ListChecks}
-          accent="#8B5CF6"
-          href="/tasks"
-        />
-        <StatsCard
-          label="Просроченные задачи"
-          value={formatNumber(overdueTasks)}
-          icon={AlarmClock}
-          accent="#EF4444"
-          href="/tasks"
-        />
-        <StatsCard
-          label="Ожидаемые оплаты"
-          value={formatCurrency(expectedPayments)}
-          icon={Wallet}
-          accent="#F59E0B"
-          href="/payments"
-        />
-        <StatsCard
-          label="Открытые обращения"
-          value={formatNumber(supportRes.count ?? 0)}
-          icon={LifeBuoy}
-          accent="#F97316"
-          href="/support"
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PipelineWidget data={pipeline} />
-        <RecentActivity leads={recentLeadsRes.data ?? []} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DeadlinesWidget projects={deadlinesRes.data ?? []} />
-        <TasksWidget tasks={watchTasks} />
-      </div>
-
-      <JournalWidget updates={updates} errors={recentErrors} />
     </div>
   );
 }

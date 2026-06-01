@@ -1,6 +1,29 @@
 # CLAUDE.md — Прогресс разработки CRM
 
+## AI onboarding (2026-06-01)
+
+- **Полный гайд для любой нейросети:** [`docs/AI-GUIDE.md`](docs/AI-GUIDE.md)
+- **Краткий индекс:** [`AGENTS.md`](AGENTS.md)
+- **Граф кода (локально):** [`graphify-out/wiki/index.md`](graphify-out/wiki/index.md) — пересборка: `graphify . --update --wiki` (или `graphify . --wiki --no-viz` с нуля)
+- **Журнал до Ruflo (полный бэкап):** [`docs/CRM-PROGRESS.md`](docs/CRM-PROGRESS.md)
+- **Инструменты:** graphify (`pipx install graphifyy`) + Ruflo (`npx ruflo@latest init`) — см. `docs/RUFLO.md`, skill `.cursor/skills/graphify/`
+
+### Ruflo (кратко)
+
+- Плагины: `ruflo-core@ruflo`, `ruflo-rag-memory@ruflo`, `ruflo-cost-tracker@ruflo`
+- MCP в Cursor: `.cursor/mcp.json` → `npx ruflo@latest mcp start`
+- Блок **«⭐ ТЕКУЩЕЕ СОСТОЯНИЕ»** ниже — главный источник для продолжения CRM-работы
+
+---
+
 ## Последнее обновление
+2026-06-01 — **UX: дашборд-панель, списки лидов/клиентов, карточка лида**
+- Дашборд в выдвижной панели (Sheet слева) с главной `/`; пункт меню «Дашборд» открывает панель.
+- Лиды и клиенты: раскрытие контактов в строке, подсветка активной строки, «Отметить» (до 2) + массовая смена статуса.
+- Карточка лида приведена к layout клиента (табы Обзор/Проекты/…); компактнее поля профиля.
+- Конвертированные лиды скрыты из списка (`clients.lead_id`); при конвертации статус лида → `bought`.
+- Пагинация и фильтры списка лидов в URL (`?page=&q=&status=&size=&expanded=`); «Назад» сохраняет позицию.
+
 2026-05-22 (v3.1) — **P1 аудит: 4 критичных фикса данных**
 - ✅ #1: Синхро оплат — recalc для старых связей при редактировании платежа (payments/actions.ts)
 - ✅ #2: Инвалидация дашборда — добавлены revalidatePath("/") и revalidatePath("/analytics") во все actions (clients, leads, projects, support, marketing)

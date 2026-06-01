@@ -1,0 +1,14 @@
+---
+description: Graphify — карта кода studio-crm
+globs: ["**/*"]
+alwaysApply: false
+---
+
+Используй graphify при onboarding, архитектурных вопросах («как устроено», «что связано с X»), большом рефакторинге.
+
+1. Проверь `graphify-out/wiki/index.md` или `graphify-out/GRAPH_REPORT.md`.
+2. Если графа нет: `graphify . --wiki --no-viz` (или узко: `graphify app lib supabase/migrations types --wiki --no-viz`).
+3. Skill: `.cursor/skills/graphify/SKILL.md`, проектные пути: `.cursor/skills/graphify/reference.md`.
+4. После merge крупной ветки: `graphify . --update --wiki`.
+
+Артефакты `graphify-out/` не коммитить.

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronDown, ExternalLink, MapPin, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ExternalLink, MapPin, Pencil, Plus } from "lucide-react";
 import { addClientComment, updateClientNotes } from "@/app/(dashboard)/clients/actions";
 import { ClientArchiveButton } from "@/components/clients/ClientArchiveButton";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
@@ -13,6 +13,8 @@ import {
   type ThreadComment,
 } from "@/components/shared/CommentThread";
 import { HistoryTimeline } from "@/components/shared/HistoryTimeline";
+import { ListBackLink } from "@/components/shared/ListBackLink";
+import { ProfileField } from "@/components/shared/ProfileField";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,29 +30,23 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { getCrmDisplayIdMaps } from "@/lib/crm-display-id";
+import { parseListQueryFromParam } from "@/lib/crm-list-query";
 import { getHistory } from "@/lib/history";
 import { CLIENT_STATUS, LEAD_SOURCE_LABEL, PROJECT_STATUS, PROJECT_TYPE_LABEL } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { Client, Lead, Payment, Project } from "@/types";
 
-/** Компактная строка «лейбл → значение» для премиум-карточки. */
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <div className="min-w-0 text-right text-sm">{value || <span className="text-muted-foreground">—</span>}</div>
-    </div>
-  );
-}
-
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { from?: string };
 }) {
   const supabase = createClient();
   const { clientIdMap } = await getCrmDisplayIdMaps(supabase);
+  const listQuery = parseListQueryFromParam(searchParams.from);
 
   const { data: client } = await supabase
     .from("clients")
@@ -149,11 +145,7 @@ export default async function ClientDetailPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/clients">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+          <ListBackLink href="/clients" listQuery={listQuery} />
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
@@ -205,13 +197,19 @@ export default async function ClientDetailPage({
                 <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   Контакты
                 </p>
-                <Field label="Telegram" value={<ContactValue type="telegram" value={client.telegram_username} />} />
-                <Field label="Телефон" value={<ContactValue type="phone" value={client.phone} />} />
+                <ProfileField
+                  label="Telegram"
+                  value={<ContactValue type="telegram" value={client.telegram_username} />}
+                />
+                <ProfileField label="Телефон" value={<ContactValue type="phone" value={client.phone} />} />
                 {client.extra_phone && (
-                  <Field label="2-й телефон" value={<ContactValue type="phone" value={client.extra_phone} />} />
+                  <ProfileField
+                    label="2-й тел."
+                    value={<ContactValue type="phone" value={client.extra_phone} />}
+                  />
                 )}
-                <Field label="Email" value={<ContactValue type="email" value={client.email} />} />
-                {client.decision_maker && <Field label="ЛПР" value={client.decision_maker} />}
+                <ProfileField label="Email" value={<ContactValue type="email" value={client.email} />} />
+                {client.decision_maker && <ProfileField label="ЛПР" value={client.decision_maker} />}
               </div>
 
               {(client.maps_url || (Array.isArray(client.links) && client.links.length > 0)) && (
@@ -248,11 +246,11 @@ export default async function ClientDetailPage({
                   <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="space-y-0.5 border-t border-border px-3 py-2">
-                  <Field label="ID" value={`#${crmId}`} />
-                  <Field label="Компания" value={client.company_name} />
-                  <Field label="Страна" value={client.country} />
-                  <Field label="Город" value={client.city} />
-                  <Field
+                  <ProfileField label="ID" value={`#${crmId}`} />
+                  <ProfileField label="Компания" value={client.company_name} />
+                  <ProfileField label="Страна" value={client.country} />
+                  <ProfileField label="Город" value={client.city} />
+                  <ProfileField
                     label="Источник"
                     value={
                       client.source
@@ -260,8 +258,8 @@ export default async function ClientDetailPage({
                         : "—"
                     }
                   />
-                  <Field label="Проектов" value={formatNumber(client.projects_count)} />
-                  <Field label="Оплачено" value={formatCurrency(client.total_paid)} />
+                  <ProfileField label="Проектов" value={formatNumber(client.projects_count)} />
+                  <ProfileField label="Оплачено" value={formatCurrency(client.total_paid)} />
                 </div>
               </details>
             </CardContent>

@@ -1,0 +1,15 @@
+---
+description: Studio CRM — обязательный контекст для агента
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Перед работой прочитай `AGENTS.md` и `docs/AI-GUIDE.md`.
+
+Текущий прогресс CRM — блок **«⭐ ТЕКУЩЕЕ СОСТОЯНИЕ»** в `CLAUDE.md` или полный журнал в `docs/CRM-PROGRESS.md`.
+
+Windows: dev на **http://localhost:3001** (`npm run dev`). **Не запускать `npm run build` поверх работающего dev** — ломает `.next`.
+
+Проверка типов без сборки: `npx tsc --noEmit`.
+
+Запреты: не коммитить `.env.local`; `SUPABASE_SERVICE_ROLE_KEY` только server-side; лиды не удалять; `tools/lead-parser` в репозитории нет (gitignored).

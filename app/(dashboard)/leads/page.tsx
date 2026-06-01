@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LeadsTable, type LeadTableItem, type LeadTableLabel } from "@/components/leads/LeadsTable";
 import { getCrmDisplayIdMaps } from "@/lib/crm-display-id";
 import { createClient } from "@/lib/supabase/server";
@@ -12,13 +13,20 @@ export default async function LeadsPage() {
   const supabase = createClient();
   const { leadIdMap } = await getCrmDisplayIdMaps(supabase);
 
-  const [leadsRes, entityLabelsRes] = await Promise.all([
+  const [leadsRes, entityLabelsRes, convertedRes] = await Promise.all([
     supabase.from("leads").select("*").order("created_at", { ascending: false }).returns<Lead[]>(),
     supabase
       .from("entity_labels")
       .select("entity_id, label:labels(id, name, color)")
       .eq("entity_type", "lead"),
+    supabase.from("clients").select("lead_id").not("lead_id", "is", null),
   ]);
+
+  const convertedLeadIds = new Set(
+    (convertedRes.data ?? [])
+      .map((row) => row.lead_id as string | null)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   const labelsByLead = new Map<string, LeadTableLabel[]>();
 
@@ -30,7 +38,9 @@ export default async function LeadsPage() {
     labelsByLead.set(row.entity_id, current);
   }
 
-  const leads: LeadTableItem[] = (leadsRes.data ?? []).map((lead) => ({
+  const leads: LeadTableItem[] = (leadsRes.data ?? [])
+    .filter((lead) => !convertedLeadIds.has(lead.id))
+    .map((lead) => ({
     ...lead,
     crmId: leadIdMap[lead.id] ?? 0,
     labels: labelsByLead.get(lead.id) ?? [],
@@ -46,7 +56,9 @@ export default async function LeadsPage() {
         </p>
       </div>
 
-      <LeadsTable leads={leads} />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Загрузка списка…</p>}>
+        <LeadsTable leads={leads} />
+      </Suspense>
     </div>
   );
 }

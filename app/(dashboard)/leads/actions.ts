@@ -130,6 +130,46 @@ export async function updateLead(
   return { ok: true, id };
 }
 
+export async function bulkSetLeadStatus(
+  ids: string[],
+  status: LeadStatus,
+): Promise<ActionResult> {
+  if (ids.length === 0) {
+    return { ok: false, error: "Выберите хотя бы один лид" };
+  }
+  if (ids.length > 2) {
+    return { ok: false, error: "Можно выбрать не более 2 лидов" };
+  }
+
+  const supabase = createClient();
+  const userId = await currentProfileId(supabase);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ status, last_contact_at: now })
+    .in("id", ids);
+
+  if (error) return { ok: false, error: error.message };
+
+  await Promise.all(
+    ids.map((id) =>
+      logActivity(supabase, {
+        action: "lead.status_changed",
+        entityType: "lead",
+        entityId: id,
+        metadata: { to: status, bulk: true },
+        userId,
+      }),
+    ),
+  );
+
+  revalidatePath("/leads");
+  revalidatePath("/");
+  for (const id of ids) revalidatePath(`/leads/${id}`);
+  return { ok: true };
+}
+
 export async function setLeadStatus(
   id: string,
   status: LeadStatus,

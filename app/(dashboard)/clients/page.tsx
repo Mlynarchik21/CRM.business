@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ClientsTable, type ClientTableItem } from "@/components/clients/ClientsTable";
 import { getCrmDisplayIdMaps } from "@/lib/crm-display-id";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,9 @@ export default async function ClientsPage() {
         </p>
       </div>
 
-      <ClientsTable clients={items} />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Загрузка списка…</p>}>
+        <ClientsTable clients={items} />
+      </Suspense>
     </div>
   );
 }

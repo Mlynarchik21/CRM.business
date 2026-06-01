@@ -1,0 +1,39 @@
+﻿=== Push report 2026-06-01T12:55:29.9037597+03:00 ===
+Working directory: C:\Users\ggmly\studio-crm
+origin	https://github.com/Mlynarchik21/CRM.business.git (fetch)
+origin	https://github.com/Mlynarchik21/CRM.business.git (push)
+
+Branch: main
+## main...origin/main
+ M .gitignore
+ M CLAUDE.md
+ M app/(dashboard)/clients/[id]/page.tsx
+ M app/(dashboard)/clients/actions.ts
+ M app/(dashboard)/clients/page.tsx
+ M app/(dashboard)/layout.tsx
+ M app/(dashboard)/leads/[id]/page.tsx
+ M app/(dashboard)/leads/actions.ts
+ M app/(dashboard)/leads/page.tsx
+ M app/(dashboard)/page.tsx
+ M components/clients/ClientsTable.tsx
+ M components/layout/Sidebar.tsx
+ M components/leads/LeadsTable.tsx
+?? .cursor/
+?? AGENTS.md
+?? PUSH-README.md
+?? _push_vercel_report.txt
+?? components/dashboard/DashboardPanel.tsx
+?? components/layout/DashboardDrawer.tsx
+?? components/layout/DashboardDrawerSlot.tsx
+?? components/layout/OpenDashboardButton.tsx
+?? components/shared/ContactPeek.tsx
+?? components/shared/ListBackLink.tsx
+?? components/shared/ProfileField.tsx
+?? components/shared/useCrmListUrl.ts
+?? docs/AI-GUIDE.md
+?? docs/CRM-PROGRESS.md
+?? docs/RUFLO.md
+?? lib/crm-list-query.ts
+?? scripts/
+
+Running tsc...

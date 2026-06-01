@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useDashboardDrawer } from "@/components/layout/DashboardDrawer";
 import {
   LayoutDashboard,
   Target,
@@ -41,6 +42,8 @@ const ICONS: Record<string, LucideIcon> = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { open: dashboardOpen, setOpen: setDashboardOpen } = useDashboardDrawer();
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-[#0B0B0D]">
@@ -56,10 +59,32 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
         {NAV_ITEMS.map((item) => {
           const Icon = ICONS[item.icon] ?? LayoutDashboard;
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const isDashboard = item.href === "/";
+          const isActive = isDashboard
+            ? dashboardOpen || pathname === "/"
+            : pathname.startsWith(item.href);
+
+          if (isDashboard) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => {
+                  if (pathname !== "/") router.push("/");
+                  setDashboardOpen(true);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </button>
+            );
+          }
 
           return (
             <Link

@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { DashboardDrawerSlot } from "@/components/layout/DashboardDrawerSlot";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { ACCENT_PRESETS, DEFAULT_ACCENT, type AccentKey } from "@/lib/constants";
@@ -47,13 +49,15 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden">
       <style>{`:root{--primary:${accentHsl};--ring:${accentHsl};}`}</style>
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar name={name} role={role} email={email} notifCount={notifCount} />
-        <main className="flex-1 overflow-y-auto bg-background p-6">
-          {children}
-        </main>
-      </div>
+      <Suspense fallback={null}>
+        <DashboardDrawerSlot>
+          <Sidebar />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Topbar name={name} role={role} email={email} notifCount={notifCount} />
+            <main className="flex-1 overflow-y-auto bg-background p-6">{children}</main>
+          </div>
+        </DashboardDrawerSlot>
+      </Suspense>
     </div>
   );
 }

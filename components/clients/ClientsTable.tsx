@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   type ColumnDef,
@@ -10,10 +10,15 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Search } from "lucide-react";
+import { ArrowUpDown, CheckSquare, Search } from "lucide-react";
+import { toast } from "sonner";
+import { bulkSetClientStatus } from "@/app/(dashboard)/clients/actions";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
+import { ClientContactPeek } from "@/components/shared/ContactPeek";
 import { PaginationBar } from "@/components/shared/PaginationBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { useCrmListUrl } from "@/components/shared/useCrmListUrl";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -32,8 +37,8 @@ import {
 } from "@/components/ui/table";
 import { CLIENT_STATUS, LEAD_SOURCE_LABEL } from "@/lib/constants";
 import { CLIENT_STATUSES } from "@/lib/validations";
-import { formatCurrency, formatDate, formatDateTimeShort, formatNumber } from "@/lib/utils";
-import type { Client } from "@/types";
+import { cn, formatCurrency, formatDate, formatDateTimeShort, formatNumber } from "@/lib/utils";
+import type { Client, ClientStatus } from "@/types";
 
 export type ClientTableItem = Client & {
   crmId: number;
@@ -41,18 +46,19 @@ export type ClientTableItem = Client & {
 
 export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("all");
-  const [view, setView] = useState<"active" | "archived" | "all">("active");
-  const [pageSize, setPageSize] = useState(25);
-  const [page, setPage] = useState(1);
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "created_at", desc: true },
-  ]);
+  const { query, replaceQuery, detailHref } = useCrmListUrl("/clients");
+  const [bulkPending, startBulk] = useTransition();
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<ClientStatus>("active");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "created_at", desc: true }]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, status, view, pageSize]);
+  const search = query.q ?? "";
+  const status = query.status ?? "all";
+  const view = query.view ?? "active";
+  const pageSize = query.size ?? 25;
+  const page = query.page ?? 1;
+  const expandedId = query.expanded;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -62,7 +68,6 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
       if (view === "archived" && !archived) return false;
       if (status !== "all" && client.status !== status) return false;
       if (!q) return true;
-
       return (
         client.name.toLowerCase().includes(q) ||
         (client.company_name ?? "").toLowerCase().includes(q) ||
@@ -86,6 +91,7 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         accessorKey: "name",
         header: ({ column }) => (
           <button
+            type="button"
             className="flex items-center gap-1"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
@@ -112,8 +118,8 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         header: "Источник",
         cell: ({ row }) =>
           row.original.source
-            ? LEAD_SOURCE_LABEL[row.original.source as keyof typeof LEAD_SOURCE_LABEL] ??
-              row.original.source
+            ? (LEAD_SOURCE_LABEL[row.original.source as keyof typeof LEAD_SOURCE_LABEL] ??
+              row.original.source)
             : "—",
       },
       {
@@ -130,6 +136,7 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         accessorKey: "created_at",
         header: ({ column }) => (
           <button
+            type="button"
             className="flex items-center gap-1"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
@@ -143,10 +150,11 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         accessorFn: (row) => (row.last_contact_at ? new Date(row.last_contact_at).getTime() : 0),
         header: ({ column }) => (
           <button
+            type="button"
             className="flex items-center gap-1"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Последнее взаимодействие <ArrowUpDown className="h-3 w-3" />
+            Контакт <ArrowUpDown className="h-3 w-3" />
           </button>
         ),
         cell: ({ row }) => (
@@ -173,20 +181,101 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
   const currentPage = Math.min(page, totalPages);
   const pageRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) {
+        toast.message("Можно выбрать не более 2 клиентов");
+        return prev;
+      }
+      return [...prev, id];
+    });
+  }
+
+  function onRowInteract(id: string) {
+    if (selectionMode) {
+      toggleSelect(id);
+      return;
+    }
+    replaceQuery({
+      expanded: expandedId === id ? undefined : id,
+      page: currentPage > 1 ? currentPage : undefined,
+    });
+  }
+
+  function applyBulkStatus() {
+    if (selectedIds.length === 0) {
+      toast.error("Выберите 1–2 клиентов");
+      return;
+    }
+    startBulk(async () => {
+      const result = await bulkSetClientStatus(selectedIds, bulkStatus);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Статус обновлён");
+      setSelectedIds([]);
+      setSelectionMode(false);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-4 pb-24">
       <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          variant={selectionMode ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            setSelectionMode((v) => !v);
+            setSelectedIds([]);
+          }}
+        >
+          <CheckSquare className="mr-2 h-4 w-4" />
+          Отметить
+        </Button>
+
+        {selectionMode && selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+            <span className="text-sm text-muted-foreground">
+              Выбрано: {selectedIds.length}/2
+            </span>
+            <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as ClientStatus)}>
+              <SelectTrigger className="h-8 w-44 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CLIENT_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {CLIENT_STATUS[s].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={applyBulkStatus} disabled={bulkPending}>
+              Сменить статус
+            </Button>
+          </div>
+        )}
+
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Поиск по имени, компании, telegram, email..."
+            onChange={(e) =>
+              replaceQuery({ q: e.target.value || undefined, page: 1, expanded: undefined })
+            }
+            placeholder="Поиск..."
             className="bg-card pl-9"
           />
         </div>
 
-        <Select value={status} onValueChange={setStatus}>
+        <Select
+          value={status}
+          onValueChange={(v) => replaceQuery({ status: v, page: 1, expanded: undefined })}
+        >
           <SelectTrigger className="w-44 bg-card">
             <SelectValue placeholder="Статус" />
           </SelectTrigger>
@@ -200,7 +289,10 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
           </SelectContent>
         </Select>
 
-        <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
+        <Select
+          value={view}
+          onValueChange={(v) => replaceQuery({ view: v, page: 1, expanded: undefined })}
+        >
           <SelectTrigger className="w-36 bg-card">
             <SelectValue />
           </SelectTrigger>
@@ -216,11 +308,12 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                {selectionMode && <TableHead className="w-10" />}
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
                     {header.isPlaceholder
@@ -233,27 +326,63 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
           </TableHeader>
           <TableBody>
             {pageRows.length ? (
-              pageRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer transition-colors hover:bg-[#1B1B1F]"
-                  onClick={() => router.push(`/clients/${row.original.id}`)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              pageRows.map((row) => {
+                const isExpanded = expandedId === row.original.id;
+                const isSelected = selectedIds.includes(row.original.id);
+                const isActive = isExpanded || isSelected;
+
+                return (
+                  <Fragment key={row.id}>
+                    <TableRow
+                      className={cn(
+                        "cursor-pointer transition-colors",
+                        isActive
+                          ? "bg-primary/10 hover:bg-primary/15"
+                          : "hover:bg-[#1B1B1F]",
+                      )}
+                      onClick={() => onRowInteract(row.original.id)}
+                    >
+                      {selectionMode && (
+                        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(row.original.id)}
+                            className="h-4 w-4 rounded border-border accent-primary"
+                            aria-label="Выбрать клиента"
+                          />
+                        </TableCell>
+                      )}
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {isExpanded && !selectionMode && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={columns.length + (selectionMode ? 1 : 0)}
+                          className="p-0"
+                        >
+                          <ClientContactPeek
+                            client={row.original}
+                            detailHref={detailHref(row.original.id)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={columns.length + (selectionMode ? 1 : 0)}
                   className="h-32 text-center text-muted-foreground"
                 >
                   {clients.length === 0
-                    ? "Клиентов пока нет. Создайте первого вручную или переведите лида."
+                    ? "Клиентов пока нет."
                     : "Ничего не найдено по фильтрам."}
                 </TableCell>
               </TableRow>
@@ -268,8 +397,8 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
           page={currentPage}
           totalPages={totalPages}
           pageSize={pageSize}
-          onPage={setPage}
-          onPageSize={setPageSize}
+          onPage={(p) => replaceQuery({ page: p, expanded: expandedId })}
+          onPageSize={(size) => replaceQuery({ size, page: 1, expanded: undefined })}
         />
       )}
     </div>

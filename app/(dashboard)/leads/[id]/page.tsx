@@ -23,7 +23,7 @@ import { parseListQueryFromParam } from "@/lib/crm-list-query";
 import { getHistory } from "@/lib/history";
 import { LEAD_SOURCE_LABEL, LEAD_STATUS, PROJECT_STATUS, PROJECT_TYPE_LABEL } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Lead, Project } from "@/types";
 
 function budgetText(lead: Lead) {

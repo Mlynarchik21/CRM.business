@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/history";
 import { createClient } from "@/lib/supabase/server";
 import { clientSchema, type ClientFormValues } from "@/lib/validations";
+import type { ThreadComment } from "@/components/shared/CommentThread";
 import type { ClientStatus } from "@/types";
 
 type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -156,6 +157,33 @@ export async function deleteClientRecord(id: string): Promise<ActionResult> {
   revalidatePath("/clients");
   revalidatePath("/");
   return { ok: true };
+}
+
+function mapCommentAuthor(author: unknown): { full_name: string } | null {
+  return Array.isArray(author)
+    ? ((author[0] as { full_name: string }) ?? null)
+    : ((author as { full_name: string } | null) ?? null);
+}
+
+export async function getClientPeekComments(clientId: string): Promise<ThreadComment[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, content, type, created_at, author:profiles(full_name)")
+    .eq("entity_type", "client")
+    .eq("entity_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) return [];
+
+  return (data ?? []).map((comment) => ({
+    id: comment.id as string,
+    content: comment.content as string,
+    type: comment.type as string,
+    created_at: comment.created_at as string,
+    author: mapCommentAuthor(comment.author),
+  }));
 }
 
 export async function addClientComment(

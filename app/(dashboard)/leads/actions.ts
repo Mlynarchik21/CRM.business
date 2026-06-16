@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/history";
 import { createClient } from "@/lib/supabase/server";
 import { notifyNewLead } from "@/lib/telegram/internal-bot";
 import { leadSchema, type LeadFormValues } from "@/lib/validations";
+import type { ThreadComment } from "@/components/shared/CommentThread";
 import type { LeadStatus } from "@/types";
 
 type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -226,6 +227,34 @@ export async function updateLeadColdSearch(
 
   revalidatePath(`/leads/${id}`);
   return { ok: true, id };
+}
+
+function mapCommentAuthor(author: unknown): { full_name: string } | null {
+  return Array.isArray(author)
+    ? ((author[0] as { full_name: string }) ?? null)
+    : ((author as { full_name: string } | null) ?? null);
+}
+
+/** Комментарии для боковой панели списка лидов. */
+export async function getLeadPeekComments(leadId: string): Promise<ThreadComment[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, content, type, created_at, author:profiles(full_name)")
+    .eq("entity_type", "lead")
+    .eq("entity_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) return [];
+
+  return (data ?? []).map((comment) => ({
+    id: comment.id as string,
+    content: comment.content as string,
+    type: comment.type as string,
+    created_at: comment.created_at as string,
+    author: mapCommentAuthor(comment.author),
+  }));
 }
 
 export async function addLeadComment(

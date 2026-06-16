@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   type ColumnDef,
@@ -14,7 +14,7 @@ import { ArrowUpDown, CheckSquare, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { bulkSetLeadStatus } from "@/app/(dashboard)/leads/actions";
 import { LeadFormDialog } from "@/components/leads/LeadFormDialog";
-import { LeadContactPeek } from "@/components/shared/ContactPeek";
+import { LeadPeekSheet } from "@/components/leads/LeadPeekSheet";
 import { PaginationBar } from "@/components/shared/PaginationBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useCrmListUrl } from "@/components/shared/useCrmListUrl";
@@ -240,6 +240,11 @@ export function LeadsTable({ leads }: { leads: LeadTableItem[] }) {
   const currentPage = Math.min(page, totalPages);
   const pageRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const peekLead = useMemo(
+    () => (expandedId ? (leads.find((l) => l.id === expandedId) ?? null) : null),
+    [expandedId, leads],
+  );
+
   function refresh() {
     startRefresh(() => {
       router.refresh();
@@ -396,50 +401,36 @@ export function LeadsTable({ leads }: { leads: LeadTableItem[] }) {
                 const isActive = isExpanded || isSelected;
 
                 return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      className={cn(
-                        "cursor-pointer transition-colors",
-                        isActive
-                          ? "bg-primary/10 hover:bg-primary/15"
-                          : "hover:bg-[#1B1B1F]",
-                      )}
-                      onClick={() => onRowInteract(row.original.id)}
-                    >
-                      {selectionMode && (
-                        <TableCell
-                          className="w-10"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelect(row.original.id)}
-                            className="h-4 w-4 rounded border-border accent-primary"
-                            aria-label="Выбрать лид"
-                          />
-                        </TableCell>
-                      )}
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {isExpanded && !selectionMode && (
-                      <TableRow key={`${row.id}-peek`} className="hover:bg-transparent">
-                        <TableCell
-                          colSpan={columns.length + (selectionMode ? 1 : 0)}
-                          className="p-0"
-                        >
-                          <LeadContactPeek
-                            lead={row.original}
-                            detailHref={detailHref(row.original.id)}
-                          />
-                        </TableCell>
-                      </TableRow>
+                  <TableRow
+                    key={row.id}
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      isActive
+                        ? "bg-primary/10 hover:bg-primary/15"
+                        : "hover:bg-[#1B1B1F]",
                     )}
-                  </Fragment>
+                    onClick={() => onRowInteract(row.original.id)}
+                  >
+                    {selectionMode && (
+                      <TableCell
+                        className="w-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(row.original.id)}
+                          className="h-4 w-4 rounded border-border accent-primary"
+                          aria-label="Выбрать лид"
+                        />
+                      </TableCell>
+                    )}
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 );
               })
             ) : (
@@ -457,6 +448,20 @@ export function LeadsTable({ leads }: { leads: LeadTableItem[] }) {
           </TableBody>
         </Table>
       </div>
+
+      <LeadPeekSheet
+        lead={peekLead}
+        open={Boolean(expandedId) && !selectionMode}
+        onOpenChange={(open) => {
+          if (!open) {
+            replaceQuery({
+              expanded: undefined,
+              page: currentPage > 1 ? currentPage : undefined,
+            });
+          }
+        }}
+        detailHref={peekLead ? detailHref(peekLead.id) : "/leads"}
+      />
 
       {sortedRows.length > 0 && (
         <PaginationBar

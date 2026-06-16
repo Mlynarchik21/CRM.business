@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   type ColumnDef,
@@ -14,7 +14,7 @@ import { ArrowUpDown, CheckSquare, Search } from "lucide-react";
 import { toast } from "sonner";
 import { bulkSetClientStatus } from "@/app/(dashboard)/clients/actions";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
-import { ClientContactPeek } from "@/components/shared/ContactPeek";
+import { ClientPeekSheet } from "@/components/clients/ClientPeekSheet";
 import { PaginationBar } from "@/components/shared/PaginationBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useCrmListUrl } from "@/components/shared/useCrmListUrl";
@@ -181,6 +181,11 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
   const currentPage = Math.min(page, totalPages);
   const pageRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const peekClient = useMemo(
+    () => (expandedId ? (clients.find((c) => c.id === expandedId) ?? null) : null),
+    [expandedId, clients],
+  );
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
@@ -332,47 +337,33 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
                 const isActive = isExpanded || isSelected;
 
                 return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      className={cn(
-                        "cursor-pointer transition-colors",
-                        isActive
-                          ? "bg-primary/10 hover:bg-primary/15"
-                          : "hover:bg-[#1B1B1F]",
-                      )}
-                      onClick={() => onRowInteract(row.original.id)}
-                    >
-                      {selectionMode && (
-                        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelect(row.original.id)}
-                            className="h-4 w-4 rounded border-border accent-primary"
-                            aria-label="Выбрать клиента"
-                          />
-                        </TableCell>
-                      )}
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {isExpanded && !selectionMode && (
-                      <TableRow className="hover:bg-transparent">
-                        <TableCell
-                          colSpan={columns.length + (selectionMode ? 1 : 0)}
-                          className="p-0"
-                        >
-                          <ClientContactPeek
-                            client={row.original}
-                            detailHref={detailHref(row.original.id)}
-                          />
-                        </TableCell>
-                      </TableRow>
+                  <TableRow
+                    key={row.id}
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      isActive
+                        ? "bg-primary/10 hover:bg-primary/15"
+                        : "hover:bg-[#1B1B1F]",
                     )}
-                  </Fragment>
+                    onClick={() => onRowInteract(row.original.id)}
+                  >
+                    {selectionMode && (
+                      <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(row.original.id)}
+                          className="h-4 w-4 rounded border-border accent-primary"
+                          aria-label="Выбрать клиента"
+                        />
+                      </TableCell>
+                    )}
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 );
               })
             ) : (
@@ -390,6 +381,20 @@ export function ClientsTable({ clients }: { clients: ClientTableItem[] }) {
           </TableBody>
         </Table>
       </div>
+
+      <ClientPeekSheet
+        client={peekClient}
+        open={Boolean(expandedId) && !selectionMode}
+        onOpenChange={(open) => {
+          if (!open) {
+            replaceQuery({
+              expanded: undefined,
+              page: currentPage > 1 ? currentPage : undefined,
+            });
+          }
+        }}
+        detailHref={peekClient ? detailHref(peekClient.id) : "/clients"}
+      />
 
       {sortedRows.length > 0 && (
         <PaginationBar

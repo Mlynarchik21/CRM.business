@@ -22,12 +22,13 @@ import { getCrmDisplayIdMaps } from "@/lib/crm-display-id";
 import { parseListQueryFromParam } from "@/lib/crm-list-query";
 import { getHistory } from "@/lib/history";
 import { LEAD_SOURCE_LABEL, LEAD_STATUS, PROJECT_STATUS, PROJECT_TYPE_LABEL } from "@/lib/constants";
+import { parseSocialFromLinks } from "@/lib/social-links";
 import { createClient } from "@/lib/supabase/server";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { Lead, Project } from "@/types";
 
 function budgetText(lead: Lead) {
-  if (lead.budget_min == null && lead.budget_max == null) return "—";
+  if (lead.budget_min == null && lead.budget_max == null) return null;
   if (lead.budget_min != null && lead.budget_max != null) {
     return `${formatCurrency(lead.budget_min)} – ${formatCurrency(lead.budget_max)}`;
   }
@@ -95,10 +96,12 @@ export default async function LeadDetailPage({
   const crmId = leadIdMap[lead.id] ?? 0;
   const duplicateOfCrmId = lead.duplicate_of ? (leadIdMap[lead.duplicate_of] ?? 0) : 0;
   const projects = projectsRes.data ?? [];
+  const budget = budgetText(lead);
+  const social = parseSocialFromLinks(lead.cold_search?.links);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <ListBackLink href="/leads" listQuery={listQuery} />
           <div>
@@ -157,68 +160,106 @@ export default async function LeadDetailPage({
           <TabsTrigger value="files">Файлы</TabsTrigger>
         </TabsList>
 
+        {/* ─── ОБЗОР ─── */}
         <TabsContent value="overview" className="grid gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          {/* Левая карточка — контакты */}
           <Card>
-            <CardContent className="space-y-3 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Контакты
-              </p>
-              <ProfileField
-                label="Telegram"
-                value={<ContactValue type="telegram" value={lead.telegram_username} />}
-              />
-              <ProfileField label="Телефон" value={<ContactValue type="phone" value={lead.phone} />} />
-              {lead.extra_phone && (
+            <CardContent className="space-y-4 p-4">
+              <div className="space-y-0.5">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Контакты
+                </p>
                 <ProfileField
-                  label="2-й тел."
-                  value={<ContactValue type="phone" value={lead.extra_phone} />}
+                  label="Telegram"
+                  value={<ContactValue type="telegram" value={lead.telegram_username} />}
                 />
-              )}
-              <ProfileField label="Email" value={<ContactValue type="email" value={lead.email} />} />
-              {lead.decision_maker && <ProfileField label="ЛПР" value={lead.decision_maker} />}
+                <ProfileField label="Телефон" value={<ContactValue type="phone" value={lead.phone} />} />
+                {lead.extra_phone && (
+                  <ProfileField
+                    label="2-й тел."
+                    value={<ContactValue type="phone" value={lead.extra_phone} />}
+                  />
+                )}
+                <ProfileField label="Email" value={<ContactValue type="email" value={lead.email} />} />
+                {lead.decision_maker && <ProfileField label="ЛПР" value={lead.decision_maker} />}
+              </div>
 
-              {lead.maps_url && (
-                <div className="border-t border-border pt-2">
-                  <a
-                    href={lead.maps_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium hover:border-primary hover:text-primary"
-                  >
-                    <MapPin className="h-3.5 w-3.5" />
-                    На картах
-                  </a>
+              {(lead.maps_url || social.instagram || social.github) && (
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  {lead.maps_url && (
+                    <a
+                      href={lead.maps_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      На картах
+                    </a>
+                  )}
+                  {social.instagram && (
+                    <a
+                      href={social.instagram.startsWith("http") ? social.instagram : `https://${social.instagram}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                    >
+                      Instagram
+                    </a>
+                  )}
+                  {social.github && (
+                    <a
+                      href={social.github.startsWith("http") ? social.github : `https://${social.github}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+                    >
+                      GitHub
+                    </a>
+                  )}
                 </div>
               )}
 
               <details className="group rounded-lg border border-border">
                 <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Квалификация
+                  Подробнее о лиде
                   <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="space-y-0.5 border-t border-border px-3 py-2">
+                  <ProfileField label="ID" value={`#${crmId}`} />
                   <ProfileField label="Источник" value={LEAD_SOURCE_LABEL[lead.source]} />
                   <ProfileField label="Запрос" value={lead.service_interest} />
-                  <ProfileField label="Бюджет" value={budgetText(lead)} />
+                  {budget && <ProfileField label="Бюджет" value={budget} />}
+                  {linkedClient && (
+                    <ProfileField
+                      label="Клиент"
+                      value={
+                        <Link href={`/clients/${linkedClient.id}`} className="text-primary hover:underline">
+                          {linkedClient.name}
+                        </Link>
+                      }
+                    />
+                  )}
                 </div>
               </details>
             </CardContent>
           </Card>
 
+          {/* Правая колонка */}
           <div className="space-y-4">
             <Card>
               <CardContent className="grid grid-cols-3 gap-3 p-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Источник</p>
-                  <p className="mt-0.5 text-sm font-semibold">{LEAD_SOURCE_LABEL[lead.source]}</p>
+                  <p className="text-xs text-muted-foreground">Проектов</p>
+                  <p className="mt-0.5 text-xl font-semibold">{formatNumber(projects.length)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Запрос</p>
-                  <p className="mt-0.5 text-sm font-semibold">{lead.service_interest || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Источник</p>
+                  <p className="mt-0.5 text-sm font-semibold leading-tight">{LEAD_SOURCE_LABEL[lead.source]}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Бюджет</p>
-                  <p className="mt-0.5 text-sm font-semibold">{budgetText(lead)}</p>
+                  <p className="mt-0.5 text-sm font-semibold leading-tight">{budget ?? "—"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -246,13 +287,16 @@ export default async function LeadDetailPage({
           </div>
         </TabsContent>
 
+        {/* ─── ПРОЕКТЫ ─── */}
         <TabsContent value="projects" className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold">Проекты</h2>
+              <h2 className="text-lg font-semibold">
+                {linkedClient ? "Проекты клиента" : "Проекты"}
+              </h2>
               <p className="text-sm text-muted-foreground">
                 {linkedClient
-                  ? "Проекты связанного клиента."
+                  ? "Здесь храним всё по проектам: что делаем, сроки, стоимость, ссылки, дорожную карту, правки и комментарии."
                   : "Переведите лида в клиента, чтобы вести проекты."}
               </p>
             </div>
@@ -287,35 +331,50 @@ export default async function LeadDetailPage({
                       className="block rounded-xl border border-border p-4 transition-colors hover:border-primary"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-semibold">{project.title}</p>
+                            <p className="text-lg font-semibold">{project.title}</p>
                             <StatusBadge label={projectStatus.label} color={projectStatus.color} />
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(project.created_at, true)}
+                            Создан {formatDate(project.created_at, true)}
                           </p>
                         </div>
-                        <span className="inline-flex h-9 items-center rounded-md border border-input px-3 text-sm">
-                          Подробнее
-                        </span>
+                        <Button variant="outline" size="sm">Подробная информация</Button>
                       </div>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        <div className="rounded-lg bg-[#1B1B1F] p-2.5 text-sm">
-                          <span className="text-xs text-muted-foreground">Тип · </span>
-                          {project.project_type
-                            ? PROJECT_TYPE_LABEL[project.project_type]
-                            : "—"}
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                        <div className="rounded-lg bg-[#1B1B1F] p-3">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Что делаем</p>
+                          <p className="mt-1 text-sm font-medium">
+                            {project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : "Не указано"}
+                          </p>
                         </div>
-                        <div className="rounded-lg bg-[#1B1B1F] p-2.5 text-sm">
-                          <span className="text-xs text-muted-foreground">Сумма · </span>
-                          {formatCurrency(project.amount)}
+                        <div className="rounded-lg bg-[#1B1B1F] p-3">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Срок</p>
+                          <p className="mt-1 text-sm font-medium">
+                            {project.deadline ? formatDate(project.deadline, true) : "Не задан"}
+                          </p>
                         </div>
-                        <div className="rounded-lg bg-[#1B1B1F] p-2.5 text-sm">
-                          <span className="text-xs text-muted-foreground">Прогресс · </span>
-                          {project.progress}%
+                        <div className="rounded-lg bg-[#1B1B1F] p-3">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Стоимость</p>
+                          <p className="mt-1 text-sm font-medium">{formatCurrency(project.amount)}</p>
+                        </div>
+                        <div className="rounded-lg bg-[#1B1B1F] p-3">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Оплачено</p>
+                          <p className="mt-1 text-sm font-medium">{formatCurrency(project.paid_amount)}</p>
+                        </div>
+                        <div className="rounded-lg bg-[#1B1B1F] p-3">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Прогресс</p>
+                          <p className="mt-1 text-sm font-medium">{project.progress}%</p>
                         </div>
                       </div>
+
+                      {project.description && (
+                        <p className="mt-4 line-clamp-2 text-sm text-muted-foreground">
+                          {project.description}
+                        </p>
+                      )}
                     </Link>
                   );
                 })
@@ -324,6 +383,7 @@ export default async function LeadDetailPage({
           </Card>
         </TabsContent>
 
+        {/* ─── ОПЛАТЫ ─── */}
         <TabsContent value="payments">
           <Card>
             <CardHeader>
@@ -344,14 +404,17 @@ export default async function LeadDetailPage({
           </Card>
         </TabsContent>
 
+        {/* ─── КОММЕНТАРИИ ─── */}
         <TabsContent value="comments">
           <CommentThread comments={comments} add={addLeadComment.bind(null, lead.id)} />
         </TabsContent>
 
+        {/* ─── ИСТОРИЯ ─── */}
         <TabsContent value="history">
           <HistoryTimeline entries={history} />
         </TabsContent>
 
+        {/* ─── ФАЙЛЫ ─── */}
         <TabsContent value="files">
           <Card>
             <CardHeader>

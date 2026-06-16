@@ -9,3 +9,7 @@ Branch: main
  M app/(dashboard)/leads/[id]/page.tsx
 
 Running tsc...
+Committed: bbfb01d feat: CRM UX drawer, leads/clients inline expand, AI guides, fixes
+Pushing to origin...
+branch 'main' set up to track 'origin/main'.
+FATAL: To https://github.com/Mlynarchik21/CRM.business.git

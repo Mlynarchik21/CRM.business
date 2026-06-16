@@ -27,7 +27,7 @@ const FUNNEL_STAGES: DealStage[] = [
   "waiting_payment",
 ];
 
-/** Серверная сводка дашборда — рендерится в выдвижной панели. */
+/** Серверная сводка дашборда на главной странице `/`. */
 export async function DashboardPanel() {
   const supabase = createClient();
 
